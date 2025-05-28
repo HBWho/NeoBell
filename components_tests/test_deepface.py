@@ -1,7 +1,7 @@
 from deepface import DeepFace
 import cv2
 
-img_path = "/home/radxa/Desktop/NeoBell/components_test/face_db/known_faces/GABRIEL_SPADAFORA.jpg"
+img_path = "/home/radxa/Desktop/NeoBell/components_tests/face_db/known_faces/GABRIEL_SPADAFORA.jpg"
 
 try:
     img = cv2.imread(img_path)

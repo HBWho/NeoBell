@@ -82,10 +82,10 @@ try:
                     last_match_time = time.time()
                     access_granted = True
                     print(f"ACCESS GRANTED: Recognized {matched_name} (distance: {best_match['distance']:.4f})")
-                    activate_pin(1, 31)
+                    activate_pin(4, 12)
                 else:
                     access_granted = False
-                    deactivate_pin(1, 31)
+                    deactivate_pin(4, 12)
                     if best_match:
                         print(f"ACCESS DENIED: Unknown person (best distance: {best_match['distance']:.4f})")
                     else:
