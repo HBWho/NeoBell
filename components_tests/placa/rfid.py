@@ -1,4 +1,4 @@
-import OPI.GPIO as GPIO
+import OPi.GPIO as GPIO
 from mfrc522 import MFRC522
 
 RST = 26
