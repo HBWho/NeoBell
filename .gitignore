@@ -1,5 +1,8 @@
 __pycache__/
 venv/
 .env
+.jpg
 env
 models/
+face_db/
+certifications/
