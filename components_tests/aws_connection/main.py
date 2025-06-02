@@ -182,7 +182,7 @@ if __name__ == '__main__':
     try:
         # Simular a existência de uma imagem de visitante
         # Crie um arquivo dummy.jpg no mesmo diretório ou aponte para uma imagem real.
-        dummy_image_path = "GABRIEL_SPADAFORA.jpg"
+        dummy_image_path = "dog.jpg"
         if not os.path.exists(dummy_image_path):
             with open(dummy_image_path, "wb") as f:
                 f.write(os.urandom(1024)) # Cria um arquivo de 1KB
