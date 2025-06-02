@@ -12,12 +12,21 @@ import 'core/screen/home_screen.dart';
 import 'features/auth/presentation/screen/login_screen.dart';
 import 'features/user_actions/user_profiles/presentation/screen/register_user_screen.dart';
 
+// Import placeholder screens (we'll create these next)
+import 'features/activities/presentation/screens/all_activities_screen.dart';
+import 'features/delivery/presentation/screens/delivery_page_screen.dart';
+import 'features/visitors/presentation/screens/visitor_notifications_screen.dart';
+import 'features/members/presentation/screens/registered_members_screen.dart';
+import 'features/nfc/presentation/screens/nfc_register_screen.dart';
+import 'features/delivery/presentation/screens/create_delivery_screen.dart';
+
 class RouterMain {
   static final Logger _logger = Logger();
   static final GoRouter router = GoRouter(
     initialLocation: '/',
     navigatorKey: NavigationService.navigatorKey,
     redirect: (context, state) async {
+      // Authentication logic (commented out for now)
       // final isLoggedIn = context.read<UserCubit>().state is UserLoggedIn;
       // final isLoggingIn = state.path == '/';
       // if (!isLoggedIn && !isLoggingIn) {
@@ -53,42 +62,50 @@ class RouterMain {
           return HomeScreen();
         },
         routes: [
+          // NeoBell 6 main screens
           GoRoute(
-            path: '/records',
-            name: 'records',
+            path: '/all-activities',
+            name: 'all-activities',
             builder: (context, state) {
-              return RecordScreen();
+              return AllActivitiesScreen();
             },
           ),
           GoRoute(
-            path: '/registeruser',
-            name: 'registeruser',
+            path: '/delivery-page',
+            name: 'delivery-page', 
             builder: (context, state) {
-              return RegisterUserScreen();
+              return DeliveryPageScreen();
             },
           ),
-          // GoRoute(
-          //   path: '/warehouses',
-          //   name: 'warehouses',
-          //   builder: (context, state) => WarehousesScreen(),
-          //   routes: [
-          //     GoRoute(
-          //       path: '/:warehouseId',
-          //       name: 'warehouseDetails',
-          //       redirect: (context, state) {
-          //         final warehouseId = state.pathParameters['warehouseId']!;
-          //         if (warehouseId.isEmpty) {
-          //           return '/home/warehouses';
-          //         }
-          //         return null;
-          //       },
-          //       builder: (context, state) {
-          //         final warehouseId = state.pathParameters['warehouseId']!;
-          //         return WarehouseDetailsScreen(warehouseId: warehouseId);
-          //       },
-          //     ),
-          //   ],
-          // ),
+          GoRoute(
+            path: '/visitor-notifications',
+            name: 'visitor-notifications',
+            builder: (context, state) {
+              return VisitorNotificationsScreen();
+            },
+          ),
+          GoRoute(
+            path: '/registered-members',
+            name: 'registered-members',
+            builder: (context, state) {
+              return RegisteredMembersScreen();
+            },
+          ),
+          GoRoute(
+            path: '/nfc-register',
+            name: 'nfc-register',
+            builder: (context, state) {
+              return NfcRegisterScreen();
+            },
+          ),
+          GoRoute(
+            path: '/create-delivery',
+            name: 'create-delivery',
+            builder: (context, state) {
+              return CreateDeliveryScreen();
+            },
+          ),
+          // Keep existing routes if needed
           GoRoute(
             path: '/changeprofile',
             name: 'changeProfile',

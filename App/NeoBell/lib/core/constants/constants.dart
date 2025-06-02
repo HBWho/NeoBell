@@ -20,8 +20,16 @@ enum UserRoles {
 }
 
 enum AppServices {
-  updateProfile('Perfil', '/home/changeprofile', Icons.person),
-  fetchRecords('Registros', '/home/records', Icons.receipt_long);
+  // NeoBell 6 main screens
+  allActivities('Ver Todas Atividades', '/home/all-activities', Icons.list_alt),
+  deliveryPage('Página de Entregas', '/home/delivery-page', Icons.local_shipping),
+  notificationVisitor('Notificações de Visitantes', '/home/visitor-notifications', Icons.video_call),
+  registeredMembers('Membros Registrados', '/home/registered-members', Icons.people),
+  nfcRegister('Registro NFC', '/home/nfc-register', Icons.nfc),
+  createDelivery('Criar Entrega', '/home/create-delivery', Icons.add_box),
+  
+  // Keep existing user profile (optional)
+  updateProfile('Perfil', '/home/changeprofile', Icons.person);
 
   final String name;
   final String path;
