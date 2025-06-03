@@ -6,15 +6,14 @@ import 'package:logger/logger.dart';
 import 'package:http/http.dart' as http;
 
 import '../constants/api_constants.dart';
-import '../domain/repositories/config_repository.dart';
 import '../error/auth_exception.dart';
 import '../error/server_exception.dart';
 import '../services/auth_interceptor_service.dart';
+import '../services/token_manager.dart';
 
 abstract interface class ApiService {
   Future<Map<String, dynamic>> getData({
     required ApiEndpoints endPoint,
-    required String jwtToken,
     Map<String, String>? header,
     Map<String, String>? pathParams,
     Map<String, String>? queryParams,
@@ -22,7 +21,6 @@ abstract interface class ApiService {
 
   Future<Map<String, dynamic>> postData({
     required ApiEndpoints endPoint,
-    String? jwtToken,
     Map<String, dynamic>? body,
     Map<String, String>? header,
     Map<String, String>? pathParams,
@@ -30,7 +28,6 @@ abstract interface class ApiService {
 
   Future<bool> updateData({
     required ApiEndpoints endPoint,
-    required String jwtToken,
     required Map<String, dynamic> body,
     Map<String, String>? header,
     Map<String, String>? pathParams,
@@ -38,7 +35,6 @@ abstract interface class ApiService {
 
   Future<void> deleteData({
     required ApiEndpoints endPoint,
-    required String jwtToken,
     Map<String, dynamic>? body,
     Map<String, String>? header,
     Map<String, String>? pathParams,
@@ -46,7 +42,6 @@ abstract interface class ApiService {
 
   Future<void> sendImage({
     required ApiEndpoints endPoint,
-    required String jwtToken,
     required XFile image,
     Map<String, String>? header,
     Map<String, String>? pathParams,
@@ -55,104 +50,179 @@ abstract interface class ApiService {
 
 class ApiServiceImpl implements ApiService {
   static final _logger = Logger();
-  final ConfigRepository _configRepository;
-  final AuthInterceptorService _authInterceptorService;
+  final TokenManager _tokenManager;
 
-  ApiServiceImpl({
-    required ConfigRepository configRepository,
-    required AuthInterceptorService authInterceptorService,
-  })  : _authInterceptorService = authInterceptorService,
-        _configRepository = configRepository;
+  ApiServiceImpl({required TokenManager tokenManager})
+    : _tokenManager = tokenManager;
+
+  Future<Map<String, String>> _buildHeadersWithAuth([
+    Map<String, String>? extraHeaders,
+  ]) async {
+    final token = await _tokenManager.getValidToken();
+    return {
+      'Authorization': 'Bearer $token',
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      ...?extraHeaders,
+    };
+  }
 
   @override
   Future<Map<String, dynamic>> getData({
     required ApiEndpoints endPoint,
-    required String jwtToken,
     Map<String, String>? header,
     Map<String, String>? pathParams,
     Map<String, String>? queryParams,
   }) async {
     try {
-      final uri = await _buildUri(endPoint, pathParams, queryParams);
-      final Map<String, String> headers = {
-        'Authorization': 'Bearer $jwtToken',
-        'Accept': 'application/json',
-        ...?header,
-      };
+      final uri = _buildUri(endPoint, pathParams, queryParams);
+      final headers = await _buildHeadersWithAuth(header);
       _debugSendPrint(
-          path: uri.toString(), header: headers.toString(), body: '');
+        path: uri.toString(),
+        header: headers.toString(),
+        body: '',
+      );
+
       final response = await http.get(uri, headers: headers);
       await _statusHandler(response);
       return jsonDecode(response.body) as Map<String, dynamic>;
-    } on ServerException {
-      rethrow;
     } on AuthException catch (e) {
+      if (e.isLoggedIn) {
+        // Retry the request once after successful reauth
+        final uri = _buildUri(endPoint, pathParams, queryParams);
+        final headers = await _buildHeadersWithAuth(header);
+        final response = await http.get(uri, headers: headers);
+        await _statusHandler(response);
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
       throw ServerException(e.message);
     } catch (e) {
-      _logger.e('An error occurred while deleting data: $e');
+      _logger.e('An error occurred while getting data: $e');
       throw ServerException(e.toString());
     }
   }
 
   @override
-  Future<Map<String, dynamic>> postData(
-      {required ApiEndpoints endPoint,
-      String? jwtToken,
-      Map<String, dynamic>? body,
-      Map<String, String>? header,
-      Map<String, String>? pathParams}) async {
+  Future<Map<String, dynamic>> postData({
+    required ApiEndpoints endPoint,
+    Map<String, dynamic>? body,
+    Map<String, String>? header,
+    Map<String, String>? pathParams,
+  }) async {
     try {
-      final uri = await _buildUri(endPoint, pathParams);
-      final Map<String, String> headers = {
-        if (jwtToken != null) 'Authorization': 'Bearer $jwtToken',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...?header,
-      };
+      final uri = _buildUri(endPoint, pathParams);
+      final headers = await _buildHeadersWithAuth(header);
       _debugSendPrint(
-          path: uri.toString(),
-          header: headers.toString(),
-          body: body.toString());
-      final response =
-          await http.post(uri, headers: headers, body: jsonEncode(body));
+        path: uri.toString(),
+        header: headers.toString(),
+        body: body.toString(),
+      );
+
+      final response = await http.post(
+        uri,
+        headers: headers,
+        body: jsonEncode(body),
+      );
       await _statusHandler(response);
       return jsonDecode(response.body) as Map<String, dynamic>;
-    } on ServerException {
-      rethrow;
     } on AuthException catch (e) {
+      if (e.isLoggedIn) {
+        // Retry the request once after successful reauth
+        final uri = _buildUri(endPoint, pathParams);
+        final headers = await _buildHeadersWithAuth(header);
+        final response = await http.post(
+          uri,
+          headers: headers,
+          body: jsonEncode(body),
+        );
+        await _statusHandler(response);
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
       throw ServerException(e.message);
     } catch (e) {
-      _logger.e('An error occurred while deleting data: $e');
+      _logger.e('An error occurred while posting data: $e');
       throw ServerException(e.toString());
     }
   }
 
   @override
-  Future<bool> updateData(
-      {required ApiEndpoints endPoint,
-      required String jwtToken,
-      required Map<String, dynamic> body,
-      Map<String, String>? header,
-      Map<String, String>? pathParams}) async {
+  Future<bool> updateData({
+    required ApiEndpoints endPoint,
+    required Map<String, dynamic> body,
+    Map<String, String>? header,
+    Map<String, String>? pathParams,
+  }) async {
     try {
-      final uri = await _buildUri(endPoint, pathParams);
-      final Map<String, String> headers = {
-        'Authorization': 'Bearer $jwtToken',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...?header,
-      };
+      final uri = _buildUri(endPoint, pathParams);
+      final headers = await _buildHeadersWithAuth(header);
       _debugSendPrint(
-          path: uri.toString(),
-          header: headers.toString(),
-          body: body.toString());
-      final response =
-          await http.put(uri, headers: headers, body: jsonEncode(body));
+        path: uri.toString(),
+        header: headers.toString(),
+        body: body.toString(),
+      );
+
+      final response = await http.put(
+        uri,
+        headers: headers,
+        body: jsonEncode(body),
+      );
       await _statusHandler(response);
       return true;
-    } on ServerException {
-      rethrow;
     } on AuthException catch (e) {
+      if (e.isLoggedIn) {
+        // Retry the request once after successful reauth
+        final uri = _buildUri(endPoint, pathParams);
+        final headers = await _buildHeadersWithAuth(header);
+        final response = await http.put(
+          uri,
+          headers: headers,
+          body: jsonEncode(body),
+        );
+        await _statusHandler(response);
+        return true;
+      }
+      throw ServerException(e.message);
+    } catch (e) {
+      _logger.e('An error occurred while updating data: $e');
+      throw ServerException(e.toString());
+    }
+  }
+
+  @override
+  Future<void> deleteData({
+    required ApiEndpoints endPoint,
+    Map<String, dynamic>? body,
+    Map<String, String>? header,
+    Map<String, String>? pathParams,
+  }) async {
+    try {
+      final uri = _buildUri(endPoint, pathParams);
+      final headers = await _buildHeadersWithAuth(header);
+      _debugSendPrint(
+        path: uri.toString(),
+        header: headers.toString(),
+        body: body.toString(),
+      );
+
+      final response = await http.delete(
+        uri,
+        headers: headers,
+        body: jsonEncode(body),
+      );
+      await _statusHandler(response);
+    } on AuthException catch (e) {
+      if (e.isLoggedIn) {
+        // Retry the request once after successful reauth
+        final uri = _buildUri(endPoint, pathParams);
+        final headers = await _buildHeadersWithAuth(header);
+        final response = await http.delete(
+          uri,
+          headers: headers,
+          body: jsonEncode(body),
+        );
+        await _statusHandler(response);
+        return;
+      }
       throw ServerException(e.message);
     } catch (e) {
       _logger.e('An error occurred while deleting data: $e');
@@ -161,62 +231,45 @@ class ApiServiceImpl implements ApiService {
   }
 
   @override
-  Future<void> deleteData(
-      {required ApiEndpoints endPoint,
-      required String jwtToken,
-      Map<String, dynamic>? body,
-      Map<String, String>? header,
-      Map<String, String>? pathParams}) async {
+  Future<void> sendImage({
+    required ApiEndpoints endPoint,
+    required XFile image,
+    Map<String, String>? header,
+    Map<String, String>? pathParams,
+  }) async {
     try {
-      final uri = await _buildUri(endPoint, pathParams);
-      final Map<String, String> headers = {
-        'Authorization': 'Bearer $jwtToken',
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...?header,
-      };
-      _debugSendPrint(
-          path: uri.toString(),
-          header: headers.toString(),
-          body: body.toString());
-      final response =
-          await http.delete(uri, headers: headers, body: jsonEncode(body));
-      await _statusHandler(response);
-    } on ServerException {
-      rethrow;
-    } on AuthException catch (e) {
-      throw ServerException(e.message);
-    } catch (e) {
-      _logger.e('An error occurred while deleting data on server: $e');
-      throw ServerException(e.toString());
-    }
-  }
+      final uri = _buildUri(endPoint, pathParams);
+      final headers = await _buildHeadersWithAuth(header);
+      final request =
+          http.MultipartRequest('POST', uri)
+            ..headers.addAll(headers)
+            ..files.add(await http.MultipartFile.fromPath('image', image.path));
 
-  @override
-  Future<void> sendImage(
-      {required ApiEndpoints endPoint,
-      required String jwtToken,
-      required XFile image,
-      Map<String, String>? header,
-      Map<String, String>? pathParams}) async {
-    try {
-      final uri = await _buildUri(endPoint, pathParams);
-      final Map<String, String> headers = {
-        'Authorization': 'Bearer $jwtToken',
-        'Accept': 'application/json',
-        ...?header,
-      };
-      final request = http.MultipartRequest('POST', uri)
-        ..headers.addAll(headers)
-        ..files.add(await http.MultipartFile.fromPath('image', image.path));
       _debugSendPrint(
-          path: uri.toString(), header: headers.toString(), body: '');
+        path: uri.toString(),
+        header: headers.toString(),
+        body: '',
+      );
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
       await _statusHandler(response);
-    } on ServerException {
-      rethrow;
     } on AuthException catch (e) {
+      if (e.isLoggedIn) {
+        // Retry the request once after successful reauth
+        final uri = _buildUri(endPoint, pathParams);
+        final headers = await _buildHeadersWithAuth(header);
+        final request =
+            http.MultipartRequest('POST', uri)
+              ..headers.addAll(headers)
+              ..files.add(
+                await http.MultipartFile.fromPath('image', image.path),
+              );
+
+        final streamedResponse = await request.send();
+        final response = await http.Response.fromStream(streamedResponse);
+        await _statusHandler(response);
+        return;
+      }
       throw ServerException(e.message);
     } catch (e) {
       _logger.e('An error occurred while sending image: $e');
@@ -226,9 +279,11 @@ class ApiServiceImpl implements ApiService {
 
   void _debugSendPrint({String? path, String? body, String? header}) {
     if (kDebugMode) {
-      _logger.d('Sending request to $path\n'
-          'Header: $header\n'
-          'Body: $body');
+      _logger.d(
+        'Sending request to $path\n'
+        'Header: $header\n'
+        'Body: $body',
+      );
     }
   }
 
@@ -242,32 +297,27 @@ class ApiServiceImpl implements ApiService {
     }
 
     final errorData = jsonDecode(response.body);
-    final statusCode = errorData['error']['code'] != null
-        ? '${response.statusCode}: ${errorData['error']['code']}'
-        : response.statusCode.toString();
+    final statusCode =
+        errorData['error']['code'] != null
+            ? '${response.statusCode}: ${errorData['error']['code']}'
+            : response.statusCode.toString();
     final errorMessage = errorData['error']['message'] ?? 'Ocorreu um erro';
     final errorDetails = errorData['error']['details'] ?? '';
-    _logger.e('Request failed. Status code: $statusCode\n'
-        'Message: $errorMessage\n'
-        'Details: $errorDetails');
-
-    if (response.statusCode == 401) {
-      final isLoggedIn = await _authInterceptorService.handleUnauthorized();
-      if (isLoggedIn) {
-        throw AuthException(isLoggedIn: true);
-      }
-      throw AuthException();
-    }
+    _logger.e(
+      'Request failed. Status code: $statusCode\n'
+      'Message: $errorMessage\n'
+      'Details: $errorDetails',
+    );
 
     throw ServerException('$statusCode, $errorMessage. $errorDetails');
   }
 
-  Future<Uri> _buildUri(
+  Uri _buildUri(
     ApiEndpoints endPoint,
     Map<String, String>? pathParameters, [
     Map<String, String>? queryParameters,
-  ]) async {
-    final String baseUrl = await _configRepository.getApiUrl();
+  ]) {
+    final String baseUrl = ApiConstants.defaultUrl;
     final String path = _buildPath(endPoint, pathParameters);
     return queryParameters != null && queryParameters.isEmpty
         ? Uri.parse('$baseUrl/$path')

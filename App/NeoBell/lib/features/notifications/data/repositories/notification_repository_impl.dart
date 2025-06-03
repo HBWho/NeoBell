@@ -16,11 +16,4 @@ class NotificationRepositoryImpl implements NotificationRepository {
 
   @override
   Future<String?> getFirebaseToken() => _dataSource.getFirebaseToken();
-
-  @override
-  Future<void> updateFirebaseToken(
-      {required String firebaseToken, required String jwtToken}) async {
-    return await _dataSource.updateFirebaseToken(
-        firebaseToken: firebaseToken, jwtToken: jwtToken);
-  }
 }

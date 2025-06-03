@@ -12,8 +12,7 @@ enum DataKeys { apiUrl, savePassword }
 
 enum UserRoles {
   admin(AppServices.values),
-  user(AppServices.values),
-  ;
+  user(AppServices.values);
 
   final List<AppServices> permissions;
   const UserRoles(this.permissions);
@@ -22,14 +21,25 @@ enum UserRoles {
 enum AppServices {
   // NeoBell 6 main screens
   allActivities('Ver Todas Atividades', '/home/all-activities', Icons.list_alt),
-  deliveryPage('Página de Entregas', '/home/delivery-page', Icons.local_shipping),
-  notificationVisitor('Notificações de Visitantes', '/home/visitor-notifications', Icons.video_call),
-  registeredMembers('Membros Registrados', '/home/registered-members', Icons.people),
+  deliveryPage(
+    'Página de Entregas',
+    '/home/delivery-page',
+    Icons.local_shipping,
+  ),
+  notificationVisitor(
+    'Notificações de Visitantes',
+    '/home/visitor-notifications',
+    Icons.video_call,
+  ),
+  registeredMembers(
+    'Membros Registrados',
+    '/home/registered-members',
+    Icons.people,
+  ),
   nfcRegister('Registro NFC', '/home/nfc-register', Icons.nfc),
   createDelivery('Criar Entrega', '/home/create-delivery', Icons.add_box),
-  
-  // Keep existing user profile (optional)
-  updateProfile('Perfil', '/home/changeprofile', Icons.person);
+
+  profilePage('Perfil', '/home/profile', Icons.person);
 
   final String name;
   final String path;

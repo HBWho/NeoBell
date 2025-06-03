@@ -7,11 +7,16 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.5.4
+  sdk: ">=3.7.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
+
+  # AWS Amplify dependencies
+  amplify_flutter: ^2.6.2
+  amplify_auth_cognito: ^2.6.2
+  amplify_authenticator: ^2.3.4
 
   # Main dependencies
   go_router: ^14.4.1 # Navigation
@@ -20,6 +25,7 @@ dependencies:
   flutter_secure_storage: ^9.2.2 # Secure storage
   shared_preferences: ^2.3.3 # Shared preferences
   fpdart: ^1.1.1 # Functional programming
+  equatable: ^2.0.7 # Value equality
 
   # Hardware dependencies
   local_auth: ^2.3.0 # Biometric authentication
@@ -40,7 +46,7 @@ dependencies:
   cupertino_icons: ^1.0.8 # Cupertino icons
   responsive_builder: ^0.7.1 # Help make the app responsive
   flutter_native_splash: ^2.4.2 # To create splash screen
-  intl: ^0.19.0 # Internationalization
+  intl: ^0.20.2 # Internationalization
 
   # Debug dependencies
   logger: ^2.1.0 # Logger

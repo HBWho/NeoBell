@@ -2,23 +2,13 @@ import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:logger/logger.dart';
-import '../../../../core/common/cubit/user/user_cubit.dart';
-import '../../../../core/common/entities/user.dart';
-import '../../../../core/constants/constants.dart';
 import '../../../../core/utils/show_snackbar.dart';
 import '../../domain/entities/notification_channel.dart';
 import '../cubit/notification_cubit.dart';
 
 class NotificationSettingsDialog extends StatefulWidget {
-  final FlutterLocalNotificationsPlugin notifications =
-      FlutterLocalNotificationsPlugin();
-
-  NotificationSettingsDialog({
-    super.key,
-  });
-
+  const NotificationSettingsDialog({super.key});
   @override
   State<NotificationSettingsDialog> createState() =>
       _NotificationSettingsDialogState();
@@ -27,14 +17,7 @@ class NotificationSettingsDialog extends StatefulWidget {
 class _NotificationSettingsDialogState
     extends State<NotificationSettingsDialog> {
   final Logger _logger = Logger();
-  late User _user;
   String firebaseToken = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _user = (context.read<UserCubit>().state as UserLoggedIn).user;
-  }
 
   Future<void> _openChannelSettings(
       BuildContext context, String channelId) async {
@@ -54,7 +37,6 @@ class _NotificationSettingsDialogState
     return LayoutBuilder(
       builder: (context, constraints) {
         final isSmallScreen = constraints.maxWidth < 400;
-
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
           child: Padding(
@@ -164,19 +146,17 @@ class _NotificationSettingsDialogState
                     onPressed: _openNotificationSettings,
                     child: const Text('Configurações Avançadas do Sistema'),
                   ),
-                  if (_user.roles.contains(UserRoles.admin))
-                    TextButton(
-                      onPressed: () => context
-                          .read<NotificationCubit>()
-                          .getFirebaseToken()
-                          .then((value) {
-                        setState(() =>
-                            firebaseToken = value ?? 'Erro ao obter token');
-                      }),
-                      child: const Text('Pegar Token do Firebase'),
-                    ),
-                  if (_user.roles.contains(UserRoles.admin) &&
-                      firebaseToken.isNotEmpty)
+                  TextButton(
+                    onPressed: () => context
+                        .read<NotificationCubit>()
+                        .getFirebaseToken()
+                        .then((value) {
+                      setState(
+                          () => firebaseToken = value ?? 'Erro ao obter token');
+                    }),
+                    child: const Text('Pegar Token do Firebase'),
+                  ),
+                  if (firebaseToken.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: SelectableText.rich(

@@ -13,24 +13,24 @@ dependencies {
 
 android {
     namespace = "br.com.neobell"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = "26.1.10909125"
 
     compileOptions {
         coreLibraryDesugaringEnabled true // Enable desugaring for Java 8 APIs. (flutter_local_notifications)
-        sourceCompatibility = JavaVersion.VERSION_11 // Enable Java 8 source compatibility. (flutter_local_notifications)
-        targetCompatibility = JavaVersion.VERSION_11 // Enable Java 8 target compatibility. (flutter_local_notifications)
+        sourceCompatibility = JavaVersion.VERSION_17 // Enable Java 8 source compatibility. (flutter_local_notifications)
+        targetCompatibility = JavaVersion.VERSION_17 // Enable Java 8 target compatibility. (flutter_local_notifications)
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11
+        jvmTarget = JavaVersion.VERSION_17.toString() 
     }
 
     defaultConfig {
         applicationId = "br.com.neobell"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 21
+        minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

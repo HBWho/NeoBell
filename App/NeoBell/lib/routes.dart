@@ -1,47 +1,81 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logger/logger.dart';
+import 'package:neobell/features/user_profile/presentation/screens/profile_screen.dart';
 
 import 'core/helper/ui_helper.dart';
 import 'core/services/navigation_service.dart';
-import 'features/auth/presentation/blocs/auth_bloc.dart';
-import 'core/common/cubit/user/user_cubit.dart';
-import 'features/user_actions/user_profiles/presentation/screen/change_profile_screen.dart';
-import 'features/user_actions/log/presentation/screens/record_screen.dart';
 import 'core/screen/home_screen.dart';
-import 'features/auth/presentation/screen/login_screen.dart';
-import 'features/user_actions/user_profiles/presentation/screen/register_user_screen.dart';
-
-// Import placeholder screens (we'll create these next)
 import 'features/activities/presentation/screens/all_activities_screen.dart';
-import 'features/delivery/presentation/screens/delivery_page_screen.dart';
-import 'features/visitors/presentation/screens/visitor_notifications_screen.dart';
-import 'features/members/presentation/screens/registered_members_screen.dart';
-import 'features/nfc/presentation/screens/nfc_register_screen.dart';
-import 'features/nfc/presentation/screens/all_registered_nfc_tags_screen.dart';
+import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/delivery/presentation/screens/create_delivery_screen.dart';
+import 'features/delivery/presentation/screens/delivery_page_screen.dart';
+import 'features/members/presentation/screens/registered_members_screen.dart';
+import 'features/nfc/presentation/screens/all_registered_nfc_tags_screen.dart';
+import 'features/nfc/presentation/screens/nfc_register_screen.dart';
+import 'features/visitors/presentation/screens/visitor_notifications_screen.dart';
+import 'init_dependencies_imports.dart';
 
 class RouterMain {
   static final Logger _logger = Logger();
+  static final AuthCubit _authCubit = serviceLocator<AuthCubit>();
   static final GoRouter router = GoRouter(
     initialLocation: '/',
     navigatorKey: NavigationService.navigatorKey,
+    refreshListenable: GoRouterRefreshStream(_authCubit.stream),
     redirect: (context, state) async {
-      // Authentication logic (commented out for now)
-      // final isLoggedIn = context.read<UserCubit>().state is UserLoggedIn;
-      // final isLoggingIn = state.path == '/';
-      // if (!isLoggedIn && !isLoggingIn) {
-      //   _logger.i('No user logged in, redirecting to login');
-      //   return '/';
-      // }
-      // return null;
+      final authState = context.read<AuthCubit>().state;
+      final String currentPath = state.matchedLocation;
+      _logger.i(
+        'Router redirect: Current AuthState: $authState, Path: $currentPath',
+      );
+
+      // Handle redirection based on authentication state
+      // If the user is not authenticated, redirect to the splash or login page
+      if (authState is AuthInitial || authState is AuthInProgress) {
+        return currentPath == '/splash' ? null : '/splash';
+      }
+
+      // If the user is authenticated, redirect to home if on splash or login page
+      // Otherwise, allow access to the current path
+      final isLoggedIn = authState is AuthAuthenticated;
+      if (isLoggedIn) {
+        if (currentPath == '/splash' || currentPath == '/') {
+          _logger.i('User logged in. Redirecting from $currentPath to /home');
+          return '/home';
+        }
+        return null;
+      } else {
+        if (currentPath != '/') {
+          _logger.i(
+            'User NOT logged in. Redirecting from $currentPath to / (login)',
+          );
+          return '/';
+        }
+        return null;
+      }
     },
     routes: [
       GoRoute(
         path: '/',
         name: 'login',
         builder: (context, state) {
-          return LoginScreen();
+          return Center(
+            child: ElevatedButton(
+              onPressed: () => context.goNamed('/home'),
+              child: Text('If you didn\'t get redirected, please click here'),
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/splash',
+        name: 'splash',
+        builder: (context, state) {
+          return const Center(child: CircularProgressIndicator());
         },
       ),
       GoRoute(
@@ -54,16 +88,23 @@ class RouterMain {
             message: 'Deseja realmente sair?',
           );
           if (confirmed ?? false) {
-            if (context.mounted) context.read<AuthBloc>().add(AuthLogout());
+            if (context.mounted) context.read<AuthCubit>().signOut();
             return true;
           }
           return false;
         },
         builder: (context, state) {
+          // return Center(child: Text('Home Screen Placeholder'));
           return HomeScreen();
         },
         routes: [
-          // NeoBell 6 main screens
+          GoRoute(
+            path: '/profile',
+            name: 'profile',
+            builder: (context, state) {
+              return ProfileScreen();
+            },
+          ),
           GoRoute(
             path: '/all-activities',
             name: 'all-activities',
@@ -73,7 +114,7 @@ class RouterMain {
           ),
           GoRoute(
             path: '/delivery-page',
-            name: 'delivery-page', 
+            name: 'delivery-page',
             builder: (context, state) {
               return DeliveryPageScreen();
             },
@@ -116,19 +157,25 @@ class RouterMain {
               return CreateDeliveryScreen();
             },
           ),
-          // Keep existing routes if needed
-          GoRoute(
-            path: '/changeprofile',
-            name: 'changeProfile',
-            builder: (context, state) {
-              final targetUser = state.uri.queryParameters['targetUser'];
-              return ChangeProfileScreen(
-                targetUserName: targetUser,
-              );
-            },
-          ),
         ],
       ),
     ],
   );
+}
+
+class GoRouterRefreshStream extends ChangeNotifier {
+  late final StreamSubscription<dynamic> _subscription;
+
+  GoRouterRefreshStream(Stream<dynamic> stream) {
+    notifyListeners();
+    _subscription = stream.asBroadcastStream().listen(
+      (dynamic _) => notifyListeners(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
 }

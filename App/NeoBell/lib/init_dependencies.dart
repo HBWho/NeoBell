@@ -2,14 +2,11 @@ part of 'init_dependencies_imports.dart';
 
 final serviceLocator = GetIt.instance;
 
-class InitDependencies {
-  static const String type = 'prod';
-  static Future<void> init() async {
-    _initAuth();
-    _initUserActions();
-    _initLog();
-    _initNotifications();
+enum InitDependenciesType { prod, dev }
 
+class InitDependencies {
+  static String type = InitDependenciesType.prod.name;
+  static Future<void> init() async {
     // * Core
     // Http Client
     serviceLocator.registerLazySingleton(() => http.Client());
@@ -23,17 +20,6 @@ class InitDependencies {
       ..registerLazySingleton<LocalStorageRepository>(
         () => SecureStorageRepositoryImpl(),
         instanceName: 'secure',
-      )
-      ..registerLazySingleton<ConfigRepository>(
-        () => ConfigRepositoryImpl(
-          nonSecureStorage: serviceLocator<LocalStorageRepository>(
-              instanceName: 'non-secure'),
-        ),
-      )
-      ..registerLazySingleton<SettingsCubit>(
-        () => SettingsCubit(
-          serviceLocator<ConfigRepository>(),
-        ),
       );
 
     // Services
@@ -41,102 +27,57 @@ class InitDependencies {
       () => AuthInterceptorServiceImpl(),
     );
 
+    // Token Management
+    serviceLocator
+      ..registerLazySingleton<TokenRepository>(() => TokenRepositoryImpl())
+      ..registerLazySingleton<TokenManager>(
+        () => TokenManagerImpl(
+          tokenRepository: serviceLocator<TokenRepository>(),
+        ),
+      );
+
     // Api
     serviceLocator.registerLazySingleton<ApiService>(
       () => ApiServiceImpl(
-        configRepository: serviceLocator<ConfigRepository>(),
         authInterceptorService: serviceLocator<AuthInterceptorService>(),
+        tokenManager: serviceLocator<TokenManager>(),
       ),
     );
-    // Cubits
-    serviceLocator.registerLazySingleton(() => UserCubit());
+
+    _initAuth();
+    _initNotifications();
+    _initUserProfile();
   }
 
   static void _initAuth() {
     serviceLocator
       // DataSources
-      ..registerFactory<AuthRemoteDataSource>(
-          () => AuthRemoteDataSourceImpl(serviceLocator<ApiService>()))
-      // Repositories
-      ..registerFactory<AuthRepository>(
-          () => AuthRepositoryImpl(serviceLocator<AuthRemoteDataSource>()),
-          instanceName: 'prod')
-      ..registerFactory<AuthRepository>(
-          () => AuthRepositoryImplMock(serviceLocator<AuthRemoteDataSource>()),
-          instanceName: 'mock')
-      ..registerFactory<AuthCredentialsRepository>(
-        () => AuthCredentialsRepositoryImpl(
-          serviceLocator<LocalStorageRepository>(instanceName: 'secure'),
-        ),
+      ..registerLazySingleton<AuthRepository>(
+        () => CognitoAuthRepository(),
+        instanceName: InitDependenciesType.prod.name,
       )
       // UseCases
       ..registerFactory(
-          () => UserLogin(serviceLocator<AuthRepository>(instanceName: 'mock')))
-      ..registerFactory(() =>
-          UserLogout(serviceLocator<AuthRepository>(instanceName: 'mock')))
-      ..registerFactory(() =>
-          UserGetUser(serviceLocator<AuthRepository>(instanceName: 'mock')))
-      // Blocs
-      ..registerLazySingleton(() => AuthBloc(
-            userCubit: serviceLocator<UserCubit>(),
-            loginUseCase: serviceLocator<UserLogin>(),
-            logoutUseCase: serviceLocator<UserLogout>(),
-            getCurrentUseCase: serviceLocator<UserGetUser>(),
-          ))
-      // Cubics
-      ..registerLazySingleton<AuthCredentialsCubit>(
-        () => AuthCredentialsCubit(
-          serviceLocator<AuthCredentialsRepository>(),
+        () => SignIn(serviceLocator<AuthRepository>(instanceName: type)),
+      )
+      ..registerFactory(
+        () => SignOut(serviceLocator<AuthRepository>(instanceName: type)),
+      )
+      ..registerFactory(
+        () =>
+            CheckAuthStatus(serviceLocator<AuthRepository>(instanceName: type)),
+      )
+      // Cubit
+      ..registerLazySingleton(
+        () => AuthCubit(
+          signIn: serviceLocator<SignIn>(),
+          signOut: serviceLocator<SignOut>(),
+          checkAuthStatus: serviceLocator<CheckAuthStatus>(),
+          tokenManager: serviceLocator<TokenManager>(),
+          userProfileCubit: serviceLocator<UserProfileCubit>(),
+          notificationCubit: serviceLocator<NotificationCubit>(),
         ),
       );
-  }
-
-  static void _initUserActions() {
-    serviceLocator
-      // DataSources
-      ..registerFactory<UserActionsRemoteDataSource>(
-          () => UserActionsRemoteDataSourceImpl(serviceLocator<ApiService>()))
-      // Repositories
-      ..registerFactory<UserActionsRepository>(() => UserActionsRepositoryImpl(
-          serviceLocator<UserActionsRemoteDataSource>()))
-      // UseCases
-      ..registerFactory(
-          () => UserUpdateProfile(serviceLocator<UserActionsRepository>()))
-      ..registerFactory(
-          () => UserGetUserByUserName(serviceLocator<UserActionsRepository>()))
-      ..registerFactory(
-          () => UserRegisterUser(serviceLocator<UserActionsRepository>()))
-      ..registerFactory(
-          () => UserGetAllUsers(serviceLocator<UserActionsRepository>()))
-      ..registerFactory(
-          () => ChangeUserRoles(serviceLocator<UserActionsRepository>()))
-      // Blocs
-      ..registerLazySingleton(() => UserActionsBloc(
-            userCubit: serviceLocator<UserCubit>(),
-            updateUseCase: serviceLocator<UserUpdateProfile>(),
-            registerUseCase: serviceLocator<UserRegisterUser>(),
-            changeRolesUseCase: serviceLocator<ChangeUserRoles>(),
-          ))
-      ..registerLazySingleton(() => UserRequestBloc(
-            userCubit: serviceLocator<UserCubit>(),
-            userGetUserByUserName: serviceLocator<UserGetUserByUserName>(),
-            userGetAllUsers: serviceLocator<UserGetAllUsers>(),
-          ));
-  }
-
-  static void _initLog() {
-    serviceLocator
-      // Repositories
-      ..registerFactory<LogRepository>(
-        () => LogRepositoryImpl(serviceLocator<UserActionsRemoteDataSource>()),
-      )
-      // UseCases
-      ..registerFactory(() => GetLogs(serviceLocator<LogRepository>()))
-      // Blocs
-      ..registerLazySingleton(() => LogBloc(
-            getLogs: serviceLocator<GetLogs>(),
-            userCubit: serviceLocator<UserCubit>(),
-          ));
   }
 
   static void _initNotifications() {
@@ -158,7 +99,6 @@ class InitDependencies {
         () => NotificationRemoteDataSourceImpl(
           localNotifications: serviceLocator<LocalNotificationsDataSource>(),
           firebaseMessaging: serviceLocator<FirebaseMessaging>(),
-          apiService: serviceLocator<ApiService>(),
         ),
       )
       // Repository
@@ -177,17 +117,61 @@ class InitDependencies {
       ..registerFactory(
         () => GetFirebaseToken(serviceLocator<NotificationRepository>()),
       )
-      ..registerFactory(
-        () => UpdateFirebaseToken(serviceLocator<NotificationRepository>()),
-      )
       // Cubit
       ..registerLazySingleton(
         () => NotificationCubit(
           initializeNotifications: serviceLocator<InitializeNotifications>(),
           showNotification: serviceLocator<ShowNotification>(),
           getFirebaseToken: serviceLocator<GetFirebaseToken>(),
-          updateFirebaseToken: serviceLocator<UpdateFirebaseToken>(),
-          userCubit: serviceLocator<UserCubit>(),
+        ),
+      );
+  }
+
+  static void _initUserProfile() {
+    serviceLocator
+      // DataSource
+      ..registerLazySingleton<UserProfileRemoteDataSource>(
+        () => UserProfileRemoteDataSourceImpl(serviceLocator<ApiService>()),
+        instanceName: InitDependenciesType.prod.name,
+      )
+      // Repository
+      ..registerLazySingleton<UserProfileRepository>(
+        () => UserProfileRepositoryImpl(
+          serviceLocator<UserProfileRemoteDataSource>(instanceName: type),
+        ),
+      )
+      // UseCases
+      ..registerFactory(
+        () => GetCurrentProfile(serviceLocator<UserProfileRepository>()),
+      )
+      ..registerFactory(
+        () => UpdateProfile(serviceLocator<UserProfileRepository>()),
+      )
+      ..registerFactory(
+        () => GetNfcTags(serviceLocator<UserProfileRepository>()),
+      )
+      ..registerFactory(
+        () => RegisterNfcTag(serviceLocator<UserProfileRepository>()),
+      )
+      ..registerFactory(
+        () => RemoveNfcTag(serviceLocator<UserProfileRepository>()),
+      )
+      ..registerFactory(
+        () => UpdateDeviceToken(serviceLocator<UserProfileRepository>()),
+      )
+      ..registerFactory(
+        () => UpdateNfcTag(serviceLocator<UserProfileRepository>()),
+      )
+      // Cubit
+      ..registerLazySingleton(
+        () => UserProfileCubit(
+          getCurrentProfile: serviceLocator<GetCurrentProfile>(),
+          updateProfile: serviceLocator<UpdateProfile>(),
+          getNfcTags: serviceLocator<GetNfcTags>(),
+          registerNfcTag: serviceLocator<RegisterNfcTag>(),
+          removeNfcTag: serviceLocator<RemoveNfcTag>(),
+          updateDeviceToken: serviceLocator<UpdateDeviceToken>(),
+          updateNfcTag: serviceLocator<UpdateNfcTag>(),
         ),
       );
   }
