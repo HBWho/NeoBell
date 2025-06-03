@@ -18,6 +18,7 @@ import 'features/delivery/presentation/screens/delivery_page_screen.dart';
 import 'features/visitors/presentation/screens/visitor_notifications_screen.dart';
 import 'features/members/presentation/screens/registered_members_screen.dart';
 import 'features/nfc/presentation/screens/nfc_register_screen.dart';
+import 'features/nfc/presentation/screens/all_registered_nfc_tags_screen.dart';
 import 'features/delivery/presentation/screens/create_delivery_screen.dart';
 
 class RouterMain {
@@ -97,6 +98,16 @@ class RouterMain {
             builder: (context, state) {
               return NfcRegisterScreen();
             },
+            routes: [
+              // Sub-route for all registered NFC tags
+              GoRoute(
+                path: '/all-tags',
+                name: 'all-nfc-tags',
+                builder: (context, state) {
+                  return AllRegisteredNfcTagsScreen();
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: '/create-delivery',
