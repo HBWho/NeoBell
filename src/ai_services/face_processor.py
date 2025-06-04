@@ -1,4 +1,3 @@
-# ai_services/face_processor.py
 import cv2
 import time
 import numpy as np # For dummy frame

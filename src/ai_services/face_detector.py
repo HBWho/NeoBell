@@ -1,192 +1,207 @@
-# ai_services/face_recognizer.py
 from deepface import DeepFace
-import numpy as np
-import os
-import pickle
-import cv2 # For saving images
-import time # For unique filenames
+import cv2 # OpenCV for image handling, though DeepFace often handles it internally
+import numpy as np # For numpy array checks
 
-# Default values, can be overridden by config passed to constructor
-DEFAULT_KNOWN_FACES_DIR = "data/known_faces_db" # Relative to project root
-DEFAULT_EMBEDDINGS_DB_PATH = "data/face_embeddings_db.pkl"
+class FaceDetector:
+    def __init__(self, detector_backend='retinaface'):
+        """
+        Initializes the FaceDetector.
 
-class FaceRecognizer:
-    def __init__(self, model_name='ArcFace', distance_metric='cosine',
-                 known_faces_dir=None, embeddings_db_path=None,
-                 detector_backend_for_db_build='retinaface',
-                 detector_backend_for_representation='skip'):
-        
-        self.model_name = model_name
-        self.distance_metric = distance_metric
-        self.known_faces_dir = known_faces_dir if known_faces_dir else DEFAULT_KNOWN_FACES_DIR
-        self.embeddings_db_path = embeddings_db_path if embeddings_db_path else DEFAULT_EMBEDDINGS_DB_PATH
-        self.detector_for_db_build = detector_backend_for_db_build
-        self.detector_for_representation = detector_backend_for_representation
-        
-        self.known_face_embeddings = [] # List of dicts: {"label": str, "embeddings": [list_of_np_arrays]}
-        
-        # Ensure base data directory exists
-        os.makedirs(os.path.dirname(self.embeddings_db_path), exist_ok=True)
-        os.makedirs(self.known_faces_dir, exist_ok=True)
+        Args:
+            detector_backend (str): The face detection backend to use with DeepFace.
+                Options: 'opencv', 'ssd', 'dlib', 'mtcnn', 'retinaface', 'mediapipe', 'yolov8'.
+                'retinaface' is generally robust.
+        """
+        self.detector_backend = detector_backend
+        # Pre-load models if beneficial, but DeepFace usually handles this on first use.
+        # You can trigger a first use here if startup time is critical later:
+        # try:
+        #     print(f"FaceDetector: Pre-warming detector '{self.detector_backend}'...")
+        #     DeepFace.extract_faces(img_path=np.zeros((100,100,3), dtype=np.uint8), 
+        #                            detector_backend=self.detector_backend, 
+        #                            enforce_detection=False)
+        #     print(f"FaceDetector: Detector '{self.detector_backend}' pre-warmed.")
+        # except Exception as e:
+        #     print(f"FaceDetector: Warning - Could not pre-warm detector '{self.detector_backend}': {e}")
+        print(f"FaceDetector initialized with backend: {self.detector_backend}")
 
-        self.load_or_build_database()
-        print(f"FaceRecognizer initialized: Model '{self.model_name}', Metric '{self.distance_metric}'. DB has {len(self.known_face_embeddings)} individuals.")
+    def detect_faces(self, image_np, align=True, return_regions_only=False):
+        """
+        Detects faces in a BGR NumPy image array.
 
-    def _generate_embedding(self, face_image_np_rgb_float): # Expects RGB float (0-1) from DeepFace.extract_faces
+        Args:
+            image_np (np.ndarray): NumPy array representing the image (expected in BGR format).
+            align (bool): Whether to perform facial alignment (recommended for better recognition).
+            return_regions_only (bool): If True, returns only a list of region_dict.
+                                       If False, returns list of dicts with 'face' (np.array) and 'facial_area'.
+
+        Returns:
+            If return_regions_only is False:
+                A list of dictionaries. Each dictionary corresponds to a detected face and contains:
+                - 'face': NumPy array of the cropped and aligned face image (RGB, float 0-1).
+                - 'facial_area': dict with 'x', 'y', 'w', 'h' for the bounding box in the original image.
+                - 'confidence': detection confidence score.
+            If return_regions_only is True:
+                A list of dictionaries, each containing 'x', 'y', 'w', 'h', 'confidence'.
+            Returns an empty list if no faces are found or an error occurs.
+        """
+        if not isinstance(image_np, np.ndarray):
+            print("FaceDetector ERROR: Input image_np is not a NumPy array.")
+            return []
+        if image_np.size == 0:
+            print("FaceDetector ERROR: Input image_np is empty.")
+            return []
+
         try:
-            embedding_objs = DeepFace.represent(
-                img_path=face_image_np_rgb_float, # Already a face crop
-                model_name=self.model_name,
-                detector_backend=self.detector_for_representation, # 'skip'
-                enforce_detection=False,
-                align=False # Alignment should have been done
-            )
-            if embedding_objs and len(embedding_objs) > 0:
-                return embedding_objs[0]["embedding"]
-            return None
-        except Exception: # Catch broad exceptions from DeepFace
-            # print(f"DEBUG FR: Error generating embedding: {e}")
-            return None
-
-    def load_or_build_database(self):
-        if os.path.exists(self.embeddings_db_path):
-            print(f"FR: Loading known face embeddings from {self.embeddings_db_path}...")
-            try:
-                with open(self.embeddings_db_path, 'rb') as f:
-                    self.known_face_embeddings = pickle.load(f)
-                if not isinstance(self.known_face_embeddings, list): # Basic sanity check
-                    print("FR WARNING: Embeddings file format error. Rebuilding.")
-                    self._build_database()
-                elif not self.known_face_embeddings:
-                     print("FR: Embeddings file was empty. Will build if known_faces_dir has images.")
-                     # Don't rebuild if known_faces_dir is also empty, wait for registrations
-            except Exception:
-                print(f"FR WARNING: Error loading embeddings file. Rebuilding database.")
-                self._build_database()
-        else:
-            print("FR: No pre-computed embeddings found. Building database from known_faces_dir...")
-            self._build_database()
-
-    def _build_database(self):
-        self.known_face_embeddings = []
-        if not os.path.isdir(self.known_faces_dir):
-            print(f"FR ERROR: Known faces directory not found at {self.known_faces_dir}. Cannot build DB.")
-            return
-
-        print(f"FR: Building embeddings database from: {self.known_faces_dir}")
-        for person_name in os.listdir(self.known_faces_dir):
-            person_dir = os.path.join(self.known_faces_dir, person_name)
-            if os.path.isdir(person_dir):
-                person_embeddings_list = []
-                print(f"FR: Processing images for {person_name}...")
-                for image_name in os.listdir(person_dir):
-                    image_path = os.path.join(person_dir, image_name)
-                    try:
-                        # Use DeepFace.extract_faces to get aligned faces first
-                        # It expects BGR numpy array or image path
-                        extracted_face_data_list = DeepFace.extract_faces(
-                            img_path=image_path, # Can be path or BGR numpy array
-                            detector_backend=self.detector_for_db_build,
-                            align=True,
-                            enforce_detection=True
-                        )
-                        if extracted_face_data_list:
-                            aligned_face_np_rgb_float = extracted_face_data_list[0]['face']
-                            embedding = self._generate_embedding(aligned_face_np_rgb_float)
-                            if embedding:
-                                person_embeddings_list.append(embedding)
-                        # else:
-                        #     print(f"FR DEBUG: No face detected in {image_name} for {person_name}")
-                    except Exception: # Catch broad exceptions from DeepFace
-                        # print(f"FR DEBUG: Error processing {image_path} for DB: {e}")
-                        pass # Continue to next image
-                
-                if person_embeddings_list:
-                    self.known_face_embeddings.append({"label": person_name, "embeddings": person_embeddings_list})
-                    print(f"FR: Added/Updated {person_name} with {len(person_embeddings_list)} embeddings.")
-        
-        self._save_database()
-
-    def _save_database(self):
-        try:
-            with open(self.embeddings_db_path, 'wb') as f:
-                pickle.dump(self.known_face_embeddings, f)
-            print(f"FR: Face embeddings database saved to {self.embeddings_db_path}")
-            return True
-        except Exception as e:
-            print(f"FR ERROR: Error saving embeddings database: {e}")
-            return False
-
-    def add_person_and_update_db(self, person_name, new_embeddings_list, new_face_crops_data_rgb_float=None):
-        if not new_embeddings_list:
-            print(f"FR ERROR: No embeddings provided for {person_name}.")
-            return False
-        
-        if new_face_crops_data_rgb_float:
-            person_image_dir = os.path.join(self.known_faces_dir, person_name)
-            os.makedirs(person_image_dir, exist_ok=True)
-            for i, crop_data_rgb_float in enumerate(new_face_crops_data_rgb_float):
-                try:
-                    img_to_save = cv2.cvtColor(crop_data_rgb_float, cv2.COLOR_RGB2BGR)
-                    if img_to_save.max() <= 1.0 + 1e-6 :
-                        img_to_save = (img_to_save * 255).astype(np.uint8)
-                    else:
-                        img_to_save = img_to_save.astype(np.uint8)
-                    
-                    # Use a more unique filename to avoid overwrites if called multiple times quickly
-                    filename = f"reg_face_{i+1}_{int(time.time())}_{str(uuid.uuid4())[:4]}.jpg"
-                    cv2.imwrite(os.path.join(person_image_dir, filename), img_to_save)
-                except Exception as e_img:
-                    print(f"FR ERROR: Could not save registration image {i+1} for {person_name}: {e_img}")
-
-        existing_person_entry = next((item for item in self.known_face_embeddings if item["label"] == person_name), None)
-        if existing_person_entry:
-            print(f"FR: Updating existing person in embeddings DB: {person_name}")
-            existing_person_entry["embeddings"].extend(new_embeddings_list)
-        else:
-            print(f"FR: Adding new person to embeddings DB: {person_name}")
-            self.known_face_embeddings.append({"label": person_name, "embeddings": new_embeddings_list})
-        
-        return self._save_database()
-
-    def recognize_face(self, live_face_embedding, recognition_threshold): # Pass threshold
-        if live_face_embedding is None or not self.known_face_embeddings:
-            return "Unknown", float('inf')
-
-        min_overall_distance = float('inf')
-        recognized_name = "Unknown"
-        live_embedding_np = np.array(live_face_embedding)
-
-        for entry in self.known_face_embeddings:
-            person_label = entry["label"]
-            embeddings_for_person = entry["embeddings"]
-            current_person_min_distance = float('inf')
-
-            for known_embedding in embeddings_for_person:
-                try:
-                    known_embedding_np = np.array(known_embedding)
-                    if self.distance_metric == 'cosine':
-                        distance = DeepFace.dst.findCosineDistance(live_embedding_np, known_embedding_np)
-                    elif self.distance_metric == 'euclidean':
-                        distance = DeepFace.dst.findEuclideanDistance(live_embedding_np, known_embedding_np)
-                    elif self.distance_metric == 'euclidean_l2':
-                        distance = DeepFace.dst.findEuclideanDistance(
-                            DeepFace.dst.l2_normalize(live_embedding_np),
-                            DeepFace.dst.l2_normalize(known_embedding_np)
-                        )
-                    else: # Should not happen if constructor validates
-                        distance = float('inf') 
-                    
-                    if distance < current_person_min_distance:
-                        current_person_min_distance = distance
-                except: # Broad except for DeepFace distance errors
-                    continue 
+            # DeepFace.extract_faces expects img_path to be a path or a BGR numpy array.
+            # It returns a list of dictionaries.
+            # Each dict: {'face': np.array (RGB, float 0-1), 
+            #             'facial_area': {'x': int, 'y': int, 'w': int, 'h': int}, 
+            #             'confidence': float}
             
-            if current_person_min_distance < min_overall_distance:
-                min_overall_distance = current_person_min_distance
-                recognized_name = person_label
-        
-        if min_overall_distance <= recognition_threshold:
-            return recognized_name, min_overall_distance
+            detected_outputs_list = DeepFace.extract_faces(
+                img_path=image_np, # Pass the BGR numpy array directly
+                detector_backend=self.detector_backend,
+                align=align,
+                enforce_detection=False # Don't raise exception if no face, just return empty list
+            )
+
+            if return_regions_only:
+                regions = []
+                for output in detected_outputs_list:
+                    # Ensure confidence is present and positive before adding
+                    if output.get('confidence', 0) > 0: # Default to 0 if confidence key missing
+                        regions.append(output['facial_area'])
+                        regions[-1]['confidence'] = output['confidence'] # Add confidence to region dict
+                return regions
+            else:
+                # Filter out results where face extraction might have failed internally or low confidence
+                valid_faces = []
+                for output in detected_outputs_list:
+                    if isinstance(output.get('face'), np.ndarray) and output.get('confidence', 0) > 0:
+                        valid_faces.append(output)
+                return valid_faces
+
+        except ValueError as ve: # Catch specific errors from DeepFace if input is problematic
+            print(f"FaceDetector ValueError: {ve}. This might be due to image format or content.")
+            return []
+        except Exception as e:
+            # print(f"FaceDetector ERROR: Unexpected error during face detection: {e}") # Can be noisy
+            return []
+
+# This block runs ONLY when you execute `python face_detector.py` directly
+if __name__ == '__main__':
+    # --- Configuration for Test ---
+    # !!! REPLACE with the actual path to your config.py !!!
+    # This assumes config.py is in the project root, and ai_services is a subdir.
+    import sys
+    import os
+    _CURRENT_DIR_FD = os.path.dirname(os.path.abspath(__file__))
+    _PROJECT_ROOT_FD = os.path.dirname(_CURRENT_DIR_FD) # Up one level to ai_services parent
+    if _PROJECT_ROOT_FD not in sys.path:
+        sys.path.insert(0, _PROJECT_ROOT_FD)
+    try:
+        import config as app_config
+    except ImportError:
+        print("ERROR __main__: config.py not found. Please ensure it's in the project root.")
+        # Define fallbacks if config.py is not found for basic testing
+        class FallbackConfig:
+            FACE_DETECTOR_BACKEND = 'mtcnn' # MTCNN is often available with DeepFace
+            KNOWN_FACES_DB_DIR = "data/known_faces_db" # Adjust if your structure is different
+        app_config = FallbackConfig()
+        # Create a dummy known_faces_db for the test image path if it doesn't exist
+        dummy_person_path = os.path.join(app_config.KNOWN_FACES_DB_DIR, "person_test")
+        os.makedirs(dummy_person_path, exist_ok=True)
+        # Create a dummy image if one doesn't exist for testing
+        img_path_for_test = os.path.join(dummy_person_path, "test_img.jpg")
+        if not os.path.exists(img_path_for_test):
+            cv2.imwrite(img_path_for_test, np.zeros((200,200,3), dtype=np.uint8)) # Black image
+    # --- End Configuration for Test ---
+
+
+    detector = FaceDetector(detector_backend=app_config.FACE_DETECTOR_BACKEND)
+    
+    # Try to find an image in the known_faces_db for testing
+    # This requires KNOWN_FACES_DB_DIR to be set in config and have images
+    test_image_found = False
+    if os.path.exists(app_config.KNOWN_FACES_DB_DIR):
+        for root, dirs, files in os.walk(app_config.KNOWN_FACES_DB_DIR):
+            for file in files:
+                if file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    img_path = os.path.join(root, file)
+                    test_image_found = True
+                    break
+            if test_image_found:
+                break
+    
+    if not test_image_found:
+        # Fallback to a generic placeholder if no image is found in DB
+        # Create a dummy image if it doesn't exist
+        img_path = "test_face_image.jpg" 
+        if not os.path.exists(img_path):
+            print(f"No test image found in DB, creating dummy image: {img_path}")
+            # Create a simple image with a drawn circle "face" for testing
+            dummy_frame = np.full((480, 640, 3), (100, 100, 100), dtype=np.uint8)
+            cv2.circle(dummy_frame, (320, 240), 80, (200, 200, 255), -1) # A light "face"
+            cv2.imwrite(img_path, dummy_frame)
+        print(f"No image found in {app_config.KNOWN_FACES_DB_DIR}. Using placeholder: {img_path}")
+
+
+    print(f"\n--- Testing FaceDetector with image: {img_path} ---")
+    try:
+        frame = cv2.imread(img_path)
+        if frame is None:
+            print(f"Could not read image from {img_path}")
         else:
-            return "Unknown", min_overall_distance
+            print(f"Input image shape: {frame.shape}")
+            
+            # Test 1: Get face crops and regions
+            detected_outputs = detector.detect_faces(frame, align=True, return_regions_only=False)
+            
+            if detected_outputs:
+                print(f"\nDetected {len(detected_outputs)} face(s) with crops and regions:")
+                for i, output_data in enumerate(detected_outputs):
+                    face_img_np_rgb_float = output_data['face']
+                    region = output_data['facial_area']
+                    confidence = output_data['confidence']
+                    
+                    print(f"  Face {i+1}: Region={region}, Confidence={confidence:.4f}, Crop Shape={face_img_np_rgb_float.shape}, Crop Dtype={face_img_np_rgb_float.dtype}")
+
+                    # Display the cropped face (DeepFace returns RGB, float 0-1)
+                    face_to_show = cv2.cvtColor(face_img_np_rgb_float, cv2.COLOR_RGB2BGR)
+                    if face_to_show.max() <= 1.0 + 1e-6: # Check if it's normalized
+                        face_to_show = (face_to_show * 255).astype(np.uint8)
+                    else: # Assume it's already 0-255 if max > 1 (less likely from DeepFace extract_faces)
+                        face_to_show = face_to_show.astype(np.uint8)
+                    
+                    cv2.imshow(f"Detected Face Crop {i+1}", face_to_show)
+
+                    # Draw bounding box on original frame
+                    x, y, w, h = region['x'], region['y'], region['w'], region['h']
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    cv2.putText(frame, f"Conf: {confidence:.2f}", (x, y-5 if y-5 > 5 else y+h+15), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1)
+
+                cv2.imshow("Original Frame with Detections", frame)
+                print("\nPress any key on an image window to continue...")
+                cv2.waitKey(0)
+                cv2.destroyAllWindows()
+            else:
+                print("No faces detected by detect_faces().")
+
+            # Test 2: Get regions only
+            # print("\n--- Testing detect_faces with return_regions_only=True ---")
+            # regions_only = detector.detect_faces(frame, align=False, return_regions_only=True)
+            # if regions_only:
+            #     print(f"Detected {len(regions_only)} region(s):")
+            #     for i, region in enumerate(regions_only):
+            #         print(f"  Region {i+1}: {region}")
+            # else:
+            #     print("No regions detected with return_regions_only=True.")
+
+    except Exception as e:
+        print(f"Error in FaceDetector example usage: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        cv2.destroyAllWindows()
