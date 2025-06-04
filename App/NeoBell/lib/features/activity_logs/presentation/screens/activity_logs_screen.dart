@@ -38,15 +38,16 @@ class _ActivityLogsScreenState extends State<ActivityLogsScreen> {
     super.dispose();
   }
 
-  void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent * 0.9) {
-      final state = context.read<ActivityLogBloc>().state;
-      if (state is ActivityLogLoaded && state.hasMore) {
-        context.read<ActivityLogBloc>().add(LoadMoreActivityLogs());
-      }
-    }
-  }
+  // TODO: Scroll listener for loading more logs
+  // void _onScroll() {
+  //   if (_scrollController.position.pixels >=
+  //       _scrollController.position.maxScrollExtent * 0.9) {
+  //     final state = context.read<ActivityLogBloc>().state;
+  //     if (state is ActivityLogLoaded && state.hasMore) {
+  //       context.read<ActivityLogBloc>().add(LoadMoreActivityLogs());
+  //     }
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {

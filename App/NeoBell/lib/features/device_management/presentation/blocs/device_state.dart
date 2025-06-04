@@ -1,59 +1,74 @@
 part of 'device_bloc.dart';
 
-@immutable
 abstract class DeviceState extends Equatable {
-  const DeviceState();
+  final List<Device> devices;
+  final Device? currentDevice;
+
+  const DeviceState({this.devices = const [], this.currentDevice});
 
   @override
-  List<Object?> get props => [];
+  List<Object?> get props => [devices, currentDevice];
 }
 
 class DeviceInitial extends DeviceState {}
 
-class DeviceLoading extends DeviceState {}
+class DeviceLoading extends DeviceState {
+  const DeviceLoading({super.devices, super.currentDevice});
+}
 
-class DeviceSuccess extends DeviceState {
-  final List<Device> devices;
+class DeviceLoaded extends DeviceState {
+  final String? lastEvaluatedKey;
 
-  const DeviceSuccess(this.devices);
+  const DeviceLoaded({
+    required super.devices,
+    super.currentDevice,
+    this.lastEvaluatedKey,
+  });
 
   @override
-  List<Object> get props => [devices];
+  List<Object?> get props => [devices, currentDevice, lastEvaluatedKey];
 }
 
 class DeviceDetailsLoaded extends DeviceState {
-  final Device device;
-
-  const DeviceDetailsLoaded(this.device);
-
-  @override
-  List<Object> get props => [device];
+  const DeviceDetailsLoaded({required Device device, super.devices})
+    : super(currentDevice: device);
 }
 
 class DeviceUsersLoaded extends DeviceState {
-  final List<DeviceUser> users;
-  final String deviceId;
+  final String sbcId;
 
-  const DeviceUsersLoaded(this.users, this.deviceId);
+  const DeviceUsersLoaded({
+    required this.sbcId,
+    required super.devices,
+    super.currentDevice,
+  });
 
   @override
-  List<Object> get props => [users, deviceId];
+  List<Object?> get props => [sbcId, devices, currentDevice];
 }
 
 class DeviceOperationSuccess extends DeviceState {
   final String message;
 
-  const DeviceOperationSuccess(this.message);
+  const DeviceOperationSuccess({
+    required this.message,
+    super.devices,
+    super.currentDevice,
+  });
 
   @override
-  List<Object> get props => [message];
+  List<Object?> get props => [message, devices, currentDevice];
 }
 
 class DeviceFailure extends DeviceState {
   final String message;
 
-  const DeviceFailure(this.message);
+  const DeviceFailure({
+    required this.message,
+    super.devices,
+    super.currentDevice,
+  });
 
   @override
-  List<Object> get props => [message];
+  List<Object?> get props => [message, devices, currentDevice];
 }

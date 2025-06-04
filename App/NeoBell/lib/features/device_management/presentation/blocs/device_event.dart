@@ -1,39 +1,80 @@
 part of 'device_bloc.dart';
 
-@immutable
-sealed class DeviceEvent {}
+abstract class DeviceEvent extends Equatable {
+  const DeviceEvent();
 
-final class LoadDevices extends DeviceEvent {}
-
-final class LoadDeviceDetails extends DeviceEvent {
-  final String sbcId;
-  LoadDeviceDetails(this.sbcId);
+  @override
+  List<Object?> get props => [];
 }
 
-final class UpdateDevice extends DeviceEvent {
-  final String sbcId;
-  final String newName;
-  UpdateDevice({required this.sbcId, required this.newName});
+class LoadDevices extends DeviceEvent {
+  final int? limit;
+  final String? lastEvaluatedKey;
+
+  const LoadDevices({this.limit, this.lastEvaluatedKey});
+
+  @override
+  List<Object?> get props => [limit, lastEvaluatedKey];
 }
 
-final class LoadDeviceUsers extends DeviceEvent {
+class RefreshDevices extends DeviceEvent {}
+
+class LoadDeviceDetails extends DeviceEvent {
   final String sbcId;
-  LoadDeviceUsers(this.sbcId);
+
+  const LoadDeviceDetails(this.sbcId);
+
+  @override
+  List<Object> get props => [sbcId];
 }
 
-final class AddUserToDevice extends DeviceEvent {
+class UpdateDeviceEvent extends DeviceEvent {
   final String sbcId;
-  final String email;
-  final String role;
-  AddUserToDevice({
+  final String deviceFriendlyName;
+
+  const UpdateDeviceEvent({
     required this.sbcId,
-    required this.email,
-    required this.role,
+    required this.deviceFriendlyName,
   });
+
+  @override
+  List<Object> get props => [sbcId, deviceFriendlyName];
 }
 
-final class RemoveUserFromDevice extends DeviceEvent {
+class DeleteDeviceEvent extends DeviceEvent {
+  final String sbcId;
+
+  const DeleteDeviceEvent(this.sbcId);
+
+  @override
+  List<Object> get props => [sbcId];
+}
+
+class LoadDeviceUsers extends DeviceEvent {
+  final String sbcId;
+
+  const LoadDeviceUsers(this.sbcId);
+
+  @override
+  List<Object> get props => [sbcId];
+}
+
+class AddDeviceUserEvent extends DeviceEvent {
+  final String sbcId;
+  final String userEmail;
+
+  const AddDeviceUserEvent({required this.sbcId, required this.userEmail});
+
+  @override
+  List<Object> get props => [sbcId, userEmail];
+}
+
+class RemoveDeviceUserEvent extends DeviceEvent {
   final String sbcId;
   final String userId;
-  RemoveUserFromDevice({required this.sbcId, required this.userId});
+
+  const RemoveDeviceUserEvent({required this.sbcId, required this.userId});
+
+  @override
+  List<Object> get props => [sbcId, userId];
 }

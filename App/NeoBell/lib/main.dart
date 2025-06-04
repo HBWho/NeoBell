@@ -12,6 +12,7 @@ import 'core/constants/constants.dart';
 import 'core/theme/theme.dart';
 import 'features/activity_logs/presentation/blocs/activity_log_bloc.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
+import 'features/device_management/presentation/blocs/device_bloc.dart';
 import 'features/notifications/presentation/cubit/notification_cubit.dart';
 import 'features/user_profile/presentation/cubit/user_profile_cubit.dart';
 import 'features/visitor_permissions/presentation/blocs/visitor_permission_bloc.dart';
@@ -35,6 +36,7 @@ void main() async {
         BlocProvider(create: (_) => serviceLocator<NotificationCubit>()),
         BlocProvider(create: (_) => serviceLocator<UserProfileCubit>()),
         BlocProvider(create: (_) => serviceLocator<ActivityLogBloc>()),
+        BlocProvider(create: (_) => serviceLocator<DeviceBloc>()),
       ],
       child: const MyApp(),
     ),

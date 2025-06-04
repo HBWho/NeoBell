@@ -46,11 +46,10 @@ class VideoMessageItem extends StatelessWidget {
               DateFormat('MMM d, y HH:mm').format(message.recordedAt),
               style: Theme.of(context).textTheme.bodySmall,
             ),
-            if (message.visitorName != null)
-              Text(
-                'Visitor: ${message.visitorName}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+            Text(
+              'Visitor: ${message.visitorName}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             Text(
               'Duration: ${_formatDuration(message.durationSec)}',
               style: Theme.of(context).textTheme.bodySmall,

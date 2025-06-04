@@ -41,6 +41,7 @@ class InitDependencies {
     _initUserProfile();
     _initVideoMessages();
     _initVisitorPermissions();
+    _initDeviceManagement();
     _initActivityLogs();
   }
 
@@ -254,6 +255,45 @@ class InitDependencies {
               serviceLocator<GetVisitorDetailsWithImage>(),
           updateVisitorPermission: serviceLocator<UpdateVisitorPermission>(),
           deleteVisitorPermission: serviceLocator<DeleteVisitorPermission>(),
+        ),
+      );
+  }
+
+  static void _initDeviceManagement() {
+    serviceLocator
+      // DataSource
+      ..registerLazySingleton<DeviceRemoteDataSource>(
+        () => DeviceRemoteDataSourceImpl(serviceLocator<ApiService>()),
+        instanceName: InitDependenciesType.prod.name,
+      )
+      // Repository
+      ..registerLazySingleton<DeviceRepository>(
+        () => DeviceRepositoryImpl(
+          serviceLocator<DeviceRemoteDataSource>(instanceName: type),
+        ),
+      )
+      // UseCases
+      ..registerFactory(() => GetDevices(serviceLocator<DeviceRepository>()))
+      ..registerFactory(
+        () => GetDeviceDetails(serviceLocator<DeviceRepository>()),
+      )
+      ..registerFactory(() => UpdateDevice(serviceLocator<DeviceRepository>()))
+      ..registerFactory(
+        () => GetDeviceUsers(serviceLocator<DeviceRepository>()),
+      )
+      ..registerFactory(() => AddDeviceUser(serviceLocator<DeviceRepository>()))
+      ..registerFactory(
+        () => RemoveDeviceUser(serviceLocator<DeviceRepository>()),
+      )
+      // Bloc
+      ..registerLazySingleton(
+        () => DeviceBloc(
+          getDevices: serviceLocator<GetDevices>(),
+          getDeviceDetails: serviceLocator<GetDeviceDetails>(),
+          updateDevice: serviceLocator<UpdateDevice>(),
+          getDeviceUsers: serviceLocator<GetDeviceUsers>(),
+          addDeviceUser: serviceLocator<AddDeviceUser>(),
+          removeDeviceUser: serviceLocator<RemoveDeviceUser>(),
         ),
       );
   }

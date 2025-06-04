@@ -5,39 +5,56 @@ import '../models/device_model.dart';
 import '../models/device_user_model.dart';
 
 abstract interface class DeviceRemoteDataSource {
-  Future<List<DeviceModel>> getDevices(String jwtToken);
-  Future<DeviceModel> getDeviceDetails(String jwtToken, String sbcId);
-  Future<DeviceModel> updateDeviceDetails(
-      String jwtToken, String sbcId, String newName);
-  Future<void> deleteDevice(String jwtToken, String sbcId);
-  Future<List<DeviceUserModel>> getDeviceUsers(String jwtToken, String sbcId);
-  Future<DeviceUserModel> addDeviceUser(
-      String jwtToken, String sbcId, String email, String role);
-  Future<void> removeDeviceUser(String jwtToken, String sbcId, String userId);
+  Future<List<DeviceModel>> getDevices({int? limit, String? lastEvaluatedKey});
+
+  Future<DeviceModel> getDeviceDetails(String sbcId);
+
+  Future<DeviceModel> updateDevice(String sbcId, String deviceFriendlyName);
+
+  Future<void> deleteDevice(String sbcId);
+
+  Future<List<DeviceUserModel>> getDeviceUsers(String sbcId);
+
+  Future<void> addDeviceUser(String sbcId, String userEmail);
+
+  Future<void> removeDeviceUser(String sbcId, String userId);
 }
 
 class DeviceRemoteDataSourceImpl implements DeviceRemoteDataSource {
   final ApiService _apiService;
 
-  DeviceRemoteDataSourceImpl({required ApiService apiService})
-      : _apiService = apiService;
+  DeviceRemoteDataSourceImpl(this._apiService);
 
   @override
-  Future<List<DeviceModel>> getDevices(String jwtToken) async {
+  Future<List<DeviceModel>> getDevices({
+    int? limit,
+    String? lastEvaluatedKey,
+  }) async {
     try {
+      final queryParams = <String, String>{};
+      if (limit != null) {
+        queryParams['limit'] = limit.toString();
+      }
+      if (lastEvaluatedKey != null) {
+        queryParams['last_evaluated_key'] = lastEvaluatedKey;
+      }
+
       final response = await _apiService.getData(
         endPoint: ApiEndpoints.getDevices,
+        queryParams: queryParams.isNotEmpty ? queryParams : null,
       );
 
-      final List<dynamic> devicesJson = response['items'] as List<dynamic>;
-      return devicesJson.map((json) => DeviceModel.fromJson(json)).toList();
-    } on ServerException {
-      rethrow;
+      final items = response['items'] as List<dynamic>;
+      return items
+          .map((item) => DeviceModel.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      throw ServerException(e.toString());
     }
   }
 
   @override
-  Future<DeviceModel> getDeviceDetails(String jwtToken, String sbcId) async {
+  Future<DeviceModel> getDeviceDetails(String sbcId) async {
     try {
       final response = await _apiService.getData(
         endPoint: ApiEndpoints.getDeviceDetails,
@@ -45,95 +62,87 @@ class DeviceRemoteDataSourceImpl implements DeviceRemoteDataSource {
       );
 
       return DeviceModel.fromJson(response);
-    } on ServerException {
-      rethrow;
+    } catch (e) {
+      throw ServerException(e.toString());
     }
   }
 
   @override
-  Future<DeviceModel> updateDeviceDetails(
-      String jwtToken, String sbcId, String newName) async {
+  Future<DeviceModel> updateDevice(
+    String sbcId,
+    String deviceFriendlyName,
+  ) async {
     try {
-      final response = await _apiService.updateData(
+      await _apiService.updateData(
         endPoint: ApiEndpoints.updateDevice,
         pathParams: {'sbc_id': sbcId},
-        body: {'device_friendly_name': newName},
+        body: {'device_friendly_name': deviceFriendlyName},
       );
 
-      if (response) {
-        return DeviceModel.fromJson({
-          'sbc_id': sbcId,
-          'device_friendly_name': newName,
-          'last_updated_app_at': DateTime.now().toIso8601String(),
-        });
-      } else {
-        throw ServerException('Failed to update device details');
-      }
-    } on ServerException {
-      rethrow;
+      // Return a basic device model since the API might not return the full device
+      return DeviceModel(
+        sbcId: sbcId,
+        deviceFriendlyName: deviceFriendlyName,
+        roleOnDevice: 'Owner', // Placeholder
+        status: 'online', // Placeholder
+        lastSeen: DateTime.now(),
+      );
+    } catch (e) {
+      throw ServerException(e.toString());
     }
   }
 
   @override
-  Future<void> deleteDevice(String jwtToken, String sbcId) async {
+  Future<void> deleteDevice(String sbcId) async {
     try {
       await _apiService.deleteData(
         endPoint: ApiEndpoints.deleteDevice,
         pathParams: {'sbc_id': sbcId},
       );
-    } on ServerException {
-      rethrow;
+    } catch (e) {
+      throw ServerException(e.toString());
     }
   }
 
   @override
-  Future<List<DeviceUserModel>> getDeviceUsers(
-      String jwtToken, String sbcId) async {
+  Future<List<DeviceUserModel>> getDeviceUsers(String sbcId) async {
     try {
       final response = await _apiService.getData(
         endPoint: ApiEndpoints.getDeviceUsers,
         pathParams: {'sbc_id': sbcId},
       );
 
-      final List<dynamic> usersJson = response['items'] as List<dynamic>;
-      return usersJson.map((json) => DeviceUserModel.fromJson(json)).toList();
-    } on ServerException {
-      rethrow;
+      final items = response['items'] as List<dynamic>;
+      return items
+          .map((item) => DeviceUserModel.fromJson(item as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      throw ServerException(e.toString());
     }
   }
 
   @override
-  Future<DeviceUserModel> addDeviceUser(
-      String jwtToken, String sbcId, String email, String role) async {
+  Future<void> addDeviceUser(String sbcId, String userEmail) async {
     try {
-      final response = await _apiService.postData(
+      await _apiService.postData(
         endPoint: ApiEndpoints.addDeviceUser,
         pathParams: {'sbc_id': sbcId},
-        body: {
-          'email_of_invitee': email,
-          'role': role,
-        },
+        body: {'email_of_invitee': userEmail, 'role': 'Resident'},
       );
-
-      return DeviceUserModel.fromJson(response);
-    } on ServerException {
-      rethrow;
+    } catch (e) {
+      throw ServerException(e.toString());
     }
   }
 
   @override
-  Future<void> removeDeviceUser(
-      String jwtToken, String sbcId, String userId) async {
+  Future<void> removeDeviceUser(String sbcId, String userId) async {
     try {
       await _apiService.deleteData(
         endPoint: ApiEndpoints.removeDeviceUser,
-        pathParams: {
-          'sbc_id': sbcId,
-          'user_id': userId,
-        },
+        pathParams: {'sbc_id': sbcId, 'user_id': userId},
       );
-    } on ServerException {
-      rethrow;
+    } catch (e) {
+      throw ServerException(e.toString());
     }
   }
 }

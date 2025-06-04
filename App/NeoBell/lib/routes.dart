@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logger/logger.dart';
 import 'package:neobell/core/screen/splash_screen.dart';
+import 'package:neobell/features/device_management/presentation/screens/devices_screen.dart'
+    show DevicesScreen;
 import 'package:neobell/features/user_profile/presentation/screens/profile_screen.dart';
 import 'package:neobell/features/video_messages/presentation/blocs/video_message_bloc.dart';
 import 'package:neobell/features/video_messages/presentation/blocs/video_message_state.dart';
@@ -16,7 +18,7 @@ import 'core/services/navigation_service.dart';
 import 'core/screen/home_screen.dart';
 import 'features/activity_logs/presentation/screens/activity_logs_screen.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
-import 'features/members/presentation/screens/registered_members_screen.dart';
+import 'features/device_management/presentation/screens/device_details_screen.dart';
 import 'features/nfc/presentation/screens/nfc_screen.dart';
 import 'features/visitor_permissions/presentation/screens/visitor_permissions_screen.dart';
 import 'init_dependencies_imports.dart';
@@ -158,11 +160,21 @@ class RouterMain {
             ],
           ),
           GoRoute(
-            path: '/registered-members',
-            name: 'registered-members',
+            path: '/devices-management',
+            name: 'devices-management',
             builder: (context, state) {
-              return RegisteredMembersScreen();
+              return DevicesScreen();
             },
+            routes: [
+              GoRoute(
+                path: '/:sbcId',
+                name: 'device-details',
+                builder: (context, state) {
+                  final sbcId = state.pathParameters['sbcId']!;
+                  return DeviceDetailsScreen(sbcId: sbcId);
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: '/nfc',

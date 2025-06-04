@@ -14,10 +14,10 @@ enum AppServices {
     Icons.assignment_ind,
   ),
   videoMessages('Video Messages', '/home/video-messages', Icons.video_call),
-  registeredMembers(
-    'Registered Members',
-    '/home/registered-members',
-    Icons.people,
+  devicesManagement(
+    'Devices Management',
+    '/home/devices-management',
+    Icons.devices,
   ),
   nfc('NFC', '/home/nfc', Icons.nfc),
   createDelivery('Create Delivery', '/home/create-delivery', Icons.add_box),

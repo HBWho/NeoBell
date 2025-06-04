@@ -1,37 +1,41 @@
-import '../../domain/repositories/device_repository.dart';
+import '../../domain/entities/device_user.dart';
 
 class DeviceUserModel extends DeviceUser {
   const DeviceUserModel({
-    required String userId,
-    required String email,
-    required String name,
-    required String role,
-    required DateTime accessGrantedAt,
-  }) : super(
-          userId: userId,
-          email: email,
-          name: name,
-          role: role,
-          accessGrantedAt: accessGrantedAt,
-        );
+    required super.userId,
+    required super.name,
+    required super.email,
+    required super.role,
+    required super.accessGrantedAt,
+  });
 
   factory DeviceUserModel.fromJson(Map<String, dynamic> json) {
     return DeviceUserModel(
-      userId: json['user_id'],
-      email: json['email'],
-      name: json['name'],
-      role: json['role'],
-      accessGrantedAt: DateTime.parse(json['access_granted_at']),
+      userId: json['user_id'] as String,
+      name: json['name'] as String,
+      email: json['email'] as String,
+      role: json['role'] as String,
+      accessGrantedAt: DateTime.parse(json['access_granted_at'] as String),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'user_id': userId,
-      'email': email,
       'name': name,
+      'email': email,
       'role': role,
       'access_granted_at': accessGrantedAt.toIso8601String(),
     };
+  }
+
+  factory DeviceUserModel.fromEntity(DeviceUser deviceUser) {
+    return DeviceUserModel(
+      userId: deviceUser.userId,
+      name: deviceUser.name,
+      email: deviceUser.email,
+      role: deviceUser.role,
+      accessGrantedAt: deviceUser.accessGrantedAt,
+    );
   }
 }
