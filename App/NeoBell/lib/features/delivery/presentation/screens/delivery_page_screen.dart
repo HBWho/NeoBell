@@ -1,38 +1,101 @@
 import 'package:flutter/material.dart';
 import '../../../../core/common/widgets/base_screen_widget.dart';
+import '../../../../core/services/delivery_service.dart';
+import 'package:go_router/go_router.dart';
 
-class DeliveryPageScreen extends StatelessWidget {
+class DeliveryPageScreen extends StatefulWidget {
   const DeliveryPageScreen({super.key});
+
+  @override
+  State<DeliveryPageScreen> createState() => _DeliveryPageScreenState();
+}
+
+class _DeliveryPageScreenState extends State<DeliveryPageScreen> {
+  late Future<List<Map<String, String>>> _futureDeliveries;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureDeliveries = DeliveryService().getDeliveryActivities();
+  }
 
   @override
   Widget build(BuildContext context) {
     return BaseScreenWidget(
-      title: 'Página de Entregas',
-      body: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      title: 'Delivery Page',
+      body: FutureBuilder<List<Map<String, String>>>(
+        future: _futureDeliveries,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return const Center(child: Text('Error loading delivery data'));
+          }
+
+          final activities = snapshot.data ?? [];
+
+          return ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            itemCount: activities.length,
+            itemBuilder: (context, index) {
+              final activity = activities[index];
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.lightBlue.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      activity['name'] ?? '',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(activity['message'] ?? ''),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
           children: [
-            Icon(
-              Icons.local_shipping,
-              size: 80,
-              color: Colors.orange,
-            ),
-            SizedBox(height: 20),
-            Text(
-              'Página de Entregas',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
+            Expanded(
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    side: const BorderSide(color: Colors.red),
+                  ),
+                ),
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Return'),
               ),
             ),
-            SizedBox(height: 10),
-            Text(
-              'Aqui você verá todas as informações\nsobre suas entregas',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
+            const SizedBox(width: 10),
+            Expanded(
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () {
+                  context.goNamed('delivery-records');
+                },
+                child: const Text('All Delivery Records'),
               ),
             ),
           ],
@@ -40,4 +103,4 @@ class DeliveryPageScreen extends StatelessWidget {
       ),
     );
   }
-} 
+}

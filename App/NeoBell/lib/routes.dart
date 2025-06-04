@@ -120,10 +120,23 @@ class RouterMain {
             },
           ),
           GoRoute(
+          path: '/delivery-records',
+          name: 'delivery-records',
+          builder: (context, state) => const AllDeliveryRecordsScreen(),
+          ),
+          GoRoute(
             path: '/visitor-notifications',
             name: 'visitor-notifications',
             builder: (context, state) {
               return VisitorNotificationsScreen();
+            },
+          ),
+            GoRoute(
+            path: '/visitor-notification-detail',
+            name: 'visitor-notification-detail',
+            builder: (context, state) {
+              final notification = state.extra! as Map<String, String>;
+              return VisitorNotificationDetailScreen(notification: notification);
             },
           ),
           GoRoute(
