@@ -7,12 +7,8 @@ import '../repositories/user_profile_repository.dart';
 
 class UpdateProfileParams {
   final String name;
-  final String email;
 
-  const UpdateProfileParams({
-    required this.name,
-    required this.email,
-  });
+  const UpdateProfileParams({required this.name});
 }
 
 class UpdateProfile implements UseCase<UserProfile, UpdateProfileParams> {
@@ -22,9 +18,6 @@ class UpdateProfile implements UseCase<UserProfile, UpdateProfileParams> {
 
   @override
   Future<Either<Failure, UserProfile>> call(UpdateProfileParams params) async {
-    return await repository.updateProfile(
-      name: params.name,
-      email: params.email,
-    );
+    return await repository.updateProfile(name: params.name);
   }
 }

@@ -25,13 +25,9 @@ class UserProfileRepositoryImpl implements UserProfileRepository {
   @override
   Future<Either<Failure, UserProfile>> updateProfile({
     required String name,
-    required String email,
   }) async {
     try {
-      final profile = await remoteDataSource.updateProfile(
-        name: name,
-        email: email,
-      );
+      final profile = await remoteDataSource.updateProfile(name: name);
       return Right(profile);
     } on ServerException catch (e) {
       return Left(Failure(e.message));

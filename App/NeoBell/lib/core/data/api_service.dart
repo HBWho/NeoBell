@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:logger/logger.dart';
 import 'package:http/http.dart' as http;
 
@@ -34,13 +33,6 @@ abstract interface class ApiService {
   Future<void> deleteData({
     required ApiEndpoints endPoint,
     Map<String, dynamic>? body,
-    Map<String, String>? header,
-    Map<String, String>? pathParams,
-  });
-
-  Future<void> sendImage({
-    required ApiEndpoints endPoint,
-    required XFile image,
     Map<String, String>? header,
     Map<String, String>? pathParams,
   });
@@ -184,38 +176,6 @@ class ApiServiceImpl implements ApiService {
       rethrow;
     } catch (e) {
       _logger.e('An error occurred while deleting data: $e');
-      throw ServerException(e.toString());
-    }
-  }
-
-  @override
-  Future<void> sendImage({
-    required ApiEndpoints endPoint,
-    required XFile image,
-    Map<String, String>? header,
-    Map<String, String>? pathParams,
-  }) async {
-    try {
-      final uri = _buildUri(endPoint, pathParams);
-      final headers = await _buildHeadersWithAuth(header);
-      final request =
-          http.MultipartRequest('POST', uri)
-            ..headers.addAll(headers)
-            ..files.add(await http.MultipartFile.fromPath('image', image.path));
-
-      _debugSendPrint(
-        path: uri.toString(),
-        header: Map<String, String>.from(headers),
-        body: '',
-        requestType: 'POST',
-      );
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-      await _statusHandler(response);
-    } on ServerException {
-      rethrow;
-    } catch (e) {
-      _logger.e('An error occurred while sending image: $e');
       throw ServerException(e.toString());
     }
   }

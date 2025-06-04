@@ -20,7 +20,6 @@ enum AppServices {
     Icons.devices,
   ),
   nfc('NFC', '/home/nfc', Icons.nfc),
-  createDelivery('Create Delivery', '/home/create-delivery', Icons.add_box),
   profilePage('Profile', '/home/profile', Icons.person);
 
   final String name;

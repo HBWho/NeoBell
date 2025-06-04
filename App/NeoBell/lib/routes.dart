@@ -20,6 +20,8 @@ import 'features/activity_logs/presentation/screens/activity_logs_screen.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/device_management/presentation/screens/device_details_screen.dart';
 import 'features/nfc/presentation/screens/nfc_screen.dart';
+import 'features/package_deliveries/presentation/screens/package_deliveries_screen.dart';
+import 'features/package_deliveries/presentation/screens/package_delivery_details_screen.dart';
 import 'features/visitor_permissions/presentation/screens/visitor_permissions_screen.dart';
 import 'init_dependencies_imports.dart';
 
@@ -119,8 +121,18 @@ class RouterMain {
             path: '/delivery-page',
             name: 'delivery-page',
             builder: (context, state) {
-              return Container();
+              return PackageDeliveriesScreen();
             },
+            routes: [
+              GoRoute(
+                path: '/:orderId',
+                name: 'package-delivery-details',
+                builder: (context, state) {
+                  final orderId = state.pathParameters['orderId']!;
+                  return PackageDeliveryDetailsScreen(orderId: orderId);
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: '/visitor-permissions',
@@ -181,13 +193,6 @@ class RouterMain {
             name: 'nfc',
             builder: (context, state) {
               return NfcScreen();
-            },
-          ),
-          GoRoute(
-            path: '/create-delivery',
-            name: 'create-delivery',
-            builder: (context, state) {
-              return Container();
             },
           ),
         ],

@@ -6,10 +6,7 @@ import '../models/user_profile_model.dart';
 
 abstract class UserProfileRemoteDataSource {
   Future<UserProfileModel> getCurrentProfile();
-  Future<UserProfileModel> updateProfile({
-    required String name,
-    required String email,
-  });
+  Future<UserProfileModel> updateProfile({required String name});
   Future<void> updateDeviceToken({required String deviceToken});
   Future<void> registerNfcTag({
     required String tagId,
@@ -43,14 +40,11 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
   }
 
   @override
-  Future<UserProfileModel> updateProfile({
-    required String name,
-    required String email,
-  }) async {
+  Future<UserProfileModel> updateProfile({required String name}) async {
     try {
       final response = await _apiService.updateData(
         endPoint: ApiEndpoints.updateUserProfile,
-        body: {'name': name, 'email': email},
+        body: {'name': name},
       );
       if (response) {
         return getCurrentProfile();

@@ -100,6 +100,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const SizedBox(height: 16),
                             TextFormField(
                               controller: _emailController,
+                              readOnly: true,
                               decoration: const InputDecoration(
                                 labelText: 'Email',
                                 border: OutlineInputBorder(),
@@ -124,7 +125,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         if (_formKey.currentState!.validate()) {
                           context.read<UserProfileCubit>().updateProfile(
                             name: _nameController.text,
-                            email: _emailController.text,
                           );
                         }
                       },

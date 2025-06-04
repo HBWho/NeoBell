@@ -42,6 +42,7 @@ class InitDependencies {
     _initVideoMessages();
     _initVisitorPermissions();
     _initDeviceManagement();
+    _initPackageDeliveries();
     _initActivityLogs();
   }
 
@@ -294,6 +295,57 @@ class InitDependencies {
           getDeviceUsers: serviceLocator<GetDeviceUsers>(),
           addDeviceUser: serviceLocator<AddDeviceUser>(),
           removeDeviceUser: serviceLocator<RemoveDeviceUser>(),
+        ),
+      );
+  }
+
+  static void _initPackageDeliveries() {
+    serviceLocator
+      // DataSource
+      ..registerLazySingleton<PackageDeliveryRemoteDataSource>(
+        () => PackageDeliveryRemoteDataSourceImpl(serviceLocator<ApiService>()),
+        instanceName: InitDependenciesType.prod.name,
+      )
+      // Repository
+      ..registerLazySingleton<PackageDeliveryRepository>(
+        () => PackageDeliveryRepositoryImpl(
+          remoteDataSource: serviceLocator<PackageDeliveryRemoteDataSource>(
+            instanceName: type,
+          ),
+        ),
+      )
+      // UseCases
+      ..registerFactory(
+        () => GetPackageDeliveries(serviceLocator<PackageDeliveryRepository>()),
+      )
+      ..registerFactory(
+        () => GetPackageDeliveryDetails(
+          serviceLocator<PackageDeliveryRepository>(),
+        ),
+      )
+      ..registerFactory(
+        () => CreatePackageDeliveryUseCase(
+          serviceLocator<PackageDeliveryRepository>(),
+        ),
+      )
+      ..registerFactory(
+        () => UpdatePackageDeliveryUseCase(
+          serviceLocator<PackageDeliveryRepository>(),
+        ),
+      )
+      ..registerFactory(
+        () =>
+            DeletePackageDelivery(serviceLocator<PackageDeliveryRepository>()),
+      )
+      // Bloc
+      ..registerLazySingleton(
+        () => PackageDeliveryBloc(
+          getPackageDeliveries: serviceLocator<GetPackageDeliveries>(),
+          getPackageDeliveryDetails:
+              serviceLocator<GetPackageDeliveryDetails>(),
+          createPackageDelivery: serviceLocator<CreatePackageDeliveryUseCase>(),
+          updatePackageDelivery: serviceLocator<UpdatePackageDeliveryUseCase>(),
+          deletePackageDelivery: serviceLocator<DeletePackageDelivery>(),
         ),
       );
   }

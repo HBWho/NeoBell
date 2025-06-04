@@ -9,10 +9,7 @@ abstract class UserProfileRepository {
   Future<Either<Failure, UserProfile>> getCurrentProfile();
 
   /// Update user profile information
-  Future<Either<Failure, UserProfile>> updateProfile({
-    required String name,
-    required String email,
-  });
+  Future<Either<Failure, UserProfile>> updateProfile({required String name});
 
   /// Register or update device token for push notifications
   Future<Either<Failure, Unit>> updateDeviceToken({

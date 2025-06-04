@@ -52,14 +52,9 @@ class UserProfileCubit extends Cubit<UserProfileState> {
     );
   }
 
-  Future<void> updateProfile({
-    required String name,
-    required String email,
-  }) async {
+  Future<void> updateProfile({required String name}) async {
     emit(const UserProfileLoading());
-    final result = await _updateProfile(
-      UpdateProfileParams(name: name, email: email),
-    );
+    final result = await _updateProfile(UpdateProfileParams(name: name));
     result.fold(
       (failure) => emit(UserProfileError(failure.message)),
       (profile) => emit(

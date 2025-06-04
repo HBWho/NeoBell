@@ -30,6 +30,13 @@ enum ApiEndpoints {
   markAsViewed('messages/{message_id}'),
   deleteMessage('messages/{message_id}'),
 
+  // Package Deliveries endpoints
+  getDeliveries('deliveries'),
+  createDelivery('deliveries'),
+  getDeliveryDetails('deliveries/{order_id}'),
+  updateDelivery('deliveries/{order_id}'),
+  deleteDelivery('deliveries/{order_id}'),
+
   // Visitor Permissions endpoints
   getVisitorPermissions('visitors'),
   generateVisitorImageUrl('visitors/{face_tag_id}/image-url'),

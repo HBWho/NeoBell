@@ -14,6 +14,7 @@ import 'features/activity_logs/presentation/blocs/activity_log_bloc.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/device_management/presentation/blocs/device_bloc.dart';
 import 'features/notifications/presentation/cubit/notification_cubit.dart';
+import 'features/package_deliveries/presentation/blocs/package_delivery_bloc.dart';
 import 'features/user_profile/presentation/cubit/user_profile_cubit.dart';
 import 'features/visitor_permissions/presentation/blocs/visitor_permission_bloc.dart';
 import 'init_dependencies_imports.dart';
@@ -35,6 +36,7 @@ void main() async {
         BlocProvider(create: (_) => serviceLocator<VisitorPermissionBloc>()),
         BlocProvider(create: (_) => serviceLocator<NotificationCubit>()),
         BlocProvider(create: (_) => serviceLocator<UserProfileCubit>()),
+        BlocProvider(create: (_) => serviceLocator<PackageDeliveryBloc>()),
         BlocProvider(create: (_) => serviceLocator<ActivityLogBloc>()),
         BlocProvider(create: (_) => serviceLocator<DeviceBloc>()),
       ],
