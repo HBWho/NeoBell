@@ -4,42 +4,24 @@ class MainConstants {
   static const String appName = 'NeoBell';
 }
 
-class AuthConstants {
-  static const int minPasswordLength = 3;
-}
-
-enum DataKeys { apiUrl, savePassword }
-
-enum UserRoles {
-  admin(AppServices.values),
-  user(AppServices.values);
-
-  final List<AppServices> permissions;
-  const UserRoles(this.permissions);
-}
-
 enum AppServices {
   // NeoBell 6 main screens
-  allActivities('Ver Todas Atividades', '/home/all-activities', Icons.list_alt),
-  deliveryPage(
-    'Página de Entregas',
-    '/home/delivery-page',
-    Icons.local_shipping,
+  logs('Logs', '/home/activity-logs', Icons.list_alt),
+  deliveryPage('Delivery Page', '/home/delivery-page', Icons.local_shipping),
+  visitorPermissions(
+    'Visitor Permissions',
+    '/home/visitor-permissions',
+    Icons.assignment_ind,
   ),
-  notificationVisitor(
-    'Notificações de Visitantes',
-    '/home/visitor-notifications',
-    Icons.video_call,
-  ),
+  videoMessages('Video Messages', '/home/video-messages', Icons.video_call),
   registeredMembers(
-    'Membros Registrados',
+    'Registered Members',
     '/home/registered-members',
     Icons.people,
   ),
-  nfcRegister('Registro NFC', '/home/nfc-register', Icons.nfc),
-  createDelivery('Criar Entrega', '/home/create-delivery', Icons.add_box),
-
-  profilePage('Perfil', '/home/profile', Icons.person);
+  nfc('NFC', '/home/nfc', Icons.nfc),
+  createDelivery('Create Delivery', '/home/create-delivery', Icons.add_box),
+  profilePage('Profile', '/home/profile', Icons.person);
 
   final String name;
   final String path;

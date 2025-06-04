@@ -12,7 +12,7 @@ class BaseScreenWidget extends StatelessWidget {
     required this.title,
     required this.body,
     this.actions,
-    this.showBackButton = true,
+    this.showBackButton = false,
   });
 
   @override
@@ -24,24 +24,25 @@ class BaseScreenWidget extends StatelessWidget {
         automaticallyImplyLeading: false, // Remove default back button
       ),
       body: body,
-      bottomNavigationBar: showBackButton
-          ? Container(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () => context.pop(),
-                    icon: const Icon(Icons.arrow_back),
-                    label: const Text('Voltar'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey[600],
-                      foregroundColor: Colors.white,
+      bottomNavigationBar:
+          showBackButton
+              ? Container(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () => context.pop(),
+                      icon: const Icon(Icons.arrow_back),
+                      label: const Text('Back'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey[600],
+                        foregroundColor: Colors.white,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            )
-          : null,
+                  ],
+                ),
+              )
+              : null,
     );
   }
-} 
+}

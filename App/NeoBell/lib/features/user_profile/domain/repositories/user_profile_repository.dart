@@ -1,6 +1,7 @@
 import 'package:fpdart/fpdart.dart';
 
 import '../../../../core/error/failure.dart';
+import '../entities/nfc_tag.dart';
 import '../entities/user_profile.dart';
 
 abstract class UserProfileRepository {
@@ -21,6 +22,7 @@ abstract class UserProfileRepository {
   /// Register a new NFC tag for the user
   Future<Either<Failure, Unit>> registerNfcTag({
     required String tagId,
+    required String friendlyName,
   });
 
   /// Update an existing NFC tag
@@ -30,10 +32,8 @@ abstract class UserProfileRepository {
   });
 
   /// Remove an NFC tag from the user's profile
-  Future<Either<Failure, Unit>> removeNfcTag({
-    required String tagId,
-  });
+  Future<Either<Failure, Unit>> removeNfcTag({required String tagId});
 
   /// Get all registered NFC tags for the user
-  Future<Either<Failure, List<String>>> getNfcTags();
+  Future<Either<Failure, List<NfcTag>>> getNfcTags();
 }

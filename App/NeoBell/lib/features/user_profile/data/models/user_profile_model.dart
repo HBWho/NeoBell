@@ -1,4 +1,5 @@
 import '../../domain/entities/user_profile.dart';
+import 'nfc_tag_model.dart';
 
 class UserProfileModel extends UserProfile {
   const UserProfileModel({
@@ -14,14 +15,27 @@ class UserProfileModel extends UserProfile {
       email: json['email'] as String,
       name: json['name'] as String,
       nfcTags:
-          (json['nfcTags'] as List<dynamic>?)
-              ?.map((e) => e as String)
+          (json['tags'] as List<dynamic>?)
+              ?.map((e) => NfcTagModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
-          [],
+          const [],
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {'id': id, 'email': email, 'name': name, 'nfcTags': nfcTags};
+    return {
+      'id': id,
+      'email': email,
+      'name': name,
+      'tags':
+          nfcTags
+              .map(
+                (tag) => {
+                  'tag_friendly_name': tag.tagFriendlyName,
+                  'nfc_id': tag.nfcId,
+                },
+              )
+              .toList(),
+    };
   }
 }

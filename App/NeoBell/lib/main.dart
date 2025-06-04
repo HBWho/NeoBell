@@ -5,13 +5,16 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:neobell/features/auth/presentation/screens/login_screen.dart';
+import 'package:neobell/features/video_messages/presentation/blocs/video_message_bloc.dart';
 
 import 'amplifyconfiguration.dart';
 import 'core/constants/constants.dart';
 import 'core/theme/theme.dart';
+import 'features/activity_logs/presentation/blocs/activity_log_bloc.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/notifications/presentation/cubit/notification_cubit.dart';
 import 'features/user_profile/presentation/cubit/user_profile_cubit.dart';
+import 'features/visitor_permissions/presentation/blocs/visitor_permission_bloc.dart';
 import 'init_dependencies_imports.dart';
 import 'routes.dart';
 
@@ -27,8 +30,11 @@ void main() async {
     MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => serviceLocator<AuthCubit>()),
+        BlocProvider(create: (_) => serviceLocator<VideoMessageBloc>()),
+        BlocProvider(create: (_) => serviceLocator<VisitorPermissionBloc>()),
         BlocProvider(create: (_) => serviceLocator<NotificationCubit>()),
         BlocProvider(create: (_) => serviceLocator<UserProfileCubit>()),
+        BlocProvider(create: (_) => serviceLocator<ActivityLogBloc>()),
       ],
       child: const MyApp(),
     ),

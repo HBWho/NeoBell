@@ -8,5 +8,5 @@ flutter_launcher_icons:
   image_path: "assets/setup_icons/icon.png"
   min_sdk_android: 21
   adaptive_icon_foreground: "assets/setup_icons/icon_foreground.png"
-  adaptive_icon_background: "#DAD4C6"
+  adaptive_icon_background: "#FFF5E3"
   # adaptive_icon_monochrome: "assets/setup_icons/icon_monochrome.png" # Se tiver para Android 13+

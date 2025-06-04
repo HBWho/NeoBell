@@ -6,9 +6,7 @@ import 'package:logger/logger.dart';
 import 'package:http/http.dart' as http;
 
 import '../constants/api_constants.dart';
-import '../error/auth_exception.dart';
 import '../error/server_exception.dart';
-import '../services/auth_interceptor_service.dart';
 import '../services/token_manager.dart';
 
 abstract interface class ApiService {
@@ -79,23 +77,16 @@ class ApiServiceImpl implements ApiService {
       final headers = await _buildHeadersWithAuth(header);
       _debugSendPrint(
         path: uri.toString(),
-        header: headers.toString(),
+        header: Map<String, String>.from(headers),
         body: '',
+        requestType: 'GET',
       );
 
       final response = await http.get(uri, headers: headers);
       await _statusHandler(response);
       return jsonDecode(response.body) as Map<String, dynamic>;
-    } on AuthException catch (e) {
-      if (e.isLoggedIn) {
-        // Retry the request once after successful reauth
-        final uri = _buildUri(endPoint, pathParams, queryParams);
-        final headers = await _buildHeadersWithAuth(header);
-        final response = await http.get(uri, headers: headers);
-        await _statusHandler(response);
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      }
-      throw ServerException(e.message);
+    } on ServerException {
+      rethrow;
     } catch (e) {
       _logger.e('An error occurred while getting data: $e');
       throw ServerException(e.toString());
@@ -114,8 +105,9 @@ class ApiServiceImpl implements ApiService {
       final headers = await _buildHeadersWithAuth(header);
       _debugSendPrint(
         path: uri.toString(),
-        header: headers.toString(),
+        header: Map<String, String>.from(headers),
         body: body.toString(),
+        requestType: 'POST',
       );
 
       final response = await http.post(
@@ -125,20 +117,8 @@ class ApiServiceImpl implements ApiService {
       );
       await _statusHandler(response);
       return jsonDecode(response.body) as Map<String, dynamic>;
-    } on AuthException catch (e) {
-      if (e.isLoggedIn) {
-        // Retry the request once after successful reauth
-        final uri = _buildUri(endPoint, pathParams);
-        final headers = await _buildHeadersWithAuth(header);
-        final response = await http.post(
-          uri,
-          headers: headers,
-          body: jsonEncode(body),
-        );
-        await _statusHandler(response);
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      }
-      throw ServerException(e.message);
+    } on ServerException {
+      rethrow;
     } catch (e) {
       _logger.e('An error occurred while posting data: $e');
       throw ServerException(e.toString());
@@ -157,8 +137,9 @@ class ApiServiceImpl implements ApiService {
       final headers = await _buildHeadersWithAuth(header);
       _debugSendPrint(
         path: uri.toString(),
-        header: headers.toString(),
+        header: Map<String, String>.from(headers),
         body: body.toString(),
+        requestType: 'PUT',
       );
 
       final response = await http.put(
@@ -168,20 +149,8 @@ class ApiServiceImpl implements ApiService {
       );
       await _statusHandler(response);
       return true;
-    } on AuthException catch (e) {
-      if (e.isLoggedIn) {
-        // Retry the request once after successful reauth
-        final uri = _buildUri(endPoint, pathParams);
-        final headers = await _buildHeadersWithAuth(header);
-        final response = await http.put(
-          uri,
-          headers: headers,
-          body: jsonEncode(body),
-        );
-        await _statusHandler(response);
-        return true;
-      }
-      throw ServerException(e.message);
+    } on ServerException {
+      rethrow;
     } catch (e) {
       _logger.e('An error occurred while updating data: $e');
       throw ServerException(e.toString());
@@ -200,8 +169,9 @@ class ApiServiceImpl implements ApiService {
       final headers = await _buildHeadersWithAuth(header);
       _debugSendPrint(
         path: uri.toString(),
-        header: headers.toString(),
+        header: Map<String, String>.from(headers),
         body: body.toString(),
+        requestType: 'DELETE',
       );
 
       final response = await http.delete(
@@ -210,20 +180,8 @@ class ApiServiceImpl implements ApiService {
         body: jsonEncode(body),
       );
       await _statusHandler(response);
-    } on AuthException catch (e) {
-      if (e.isLoggedIn) {
-        // Retry the request once after successful reauth
-        final uri = _buildUri(endPoint, pathParams);
-        final headers = await _buildHeadersWithAuth(header);
-        final response = await http.delete(
-          uri,
-          headers: headers,
-          body: jsonEncode(body),
-        );
-        await _statusHandler(response);
-        return;
-      }
-      throw ServerException(e.message);
+    } on ServerException {
+      rethrow;
     } catch (e) {
       _logger.e('An error occurred while deleting data: $e');
       throw ServerException(e.toString());
@@ -247,40 +205,32 @@ class ApiServiceImpl implements ApiService {
 
       _debugSendPrint(
         path: uri.toString(),
-        header: headers.toString(),
+        header: Map<String, String>.from(headers),
         body: '',
+        requestType: 'POST',
       );
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
       await _statusHandler(response);
-    } on AuthException catch (e) {
-      if (e.isLoggedIn) {
-        // Retry the request once after successful reauth
-        final uri = _buildUri(endPoint, pathParams);
-        final headers = await _buildHeadersWithAuth(header);
-        final request =
-            http.MultipartRequest('POST', uri)
-              ..headers.addAll(headers)
-              ..files.add(
-                await http.MultipartFile.fromPath('image', image.path),
-              );
-
-        final streamedResponse = await request.send();
-        final response = await http.Response.fromStream(streamedResponse);
-        await _statusHandler(response);
-        return;
-      }
-      throw ServerException(e.message);
+    } on ServerException {
+      rethrow;
     } catch (e) {
       _logger.e('An error occurred while sending image: $e');
       throw ServerException(e.toString());
     }
   }
 
-  void _debugSendPrint({String? path, String? body, String? header}) {
+  void _debugSendPrint({
+    String? path,
+    String? body,
+    Map<String, String>? header,
+    String? requestType,
+  }) {
     if (kDebugMode) {
+      header?.remove('Authorization');
       _logger.d(
         'Sending request to $path\n'
+        'Request Type: $requestType\n'
         'Header: $header\n'
         'Body: $body',
       );
@@ -291,25 +241,23 @@ class ApiServiceImpl implements ApiService {
     if (kDebugMode) {
       _logger.d('Server Response: ${response.body}');
     }
+    final errorData = jsonDecode(response.body);
     if (response.statusCode == 200 || response.statusCode == 201) {
       _logger.i('Request successful');
       return;
     }
 
-    final errorData = jsonDecode(response.body);
-    final statusCode =
-        errorData['error']['code'] != null
-            ? '${response.statusCode}: ${errorData['error']['code']}'
-            : response.statusCode.toString();
-    final errorMessage = errorData['error']['message'] ?? 'Ocorreu um erro';
-    final errorDetails = errorData['error']['details'] ?? '';
+    final errorMessage = errorData['message'] ?? 'Unknown error occurred';
+    final errorDetails = errorData['error'] ?? '';
     _logger.e(
-      'Request failed. Status code: $statusCode\n'
+      'Request failed. Status code: ${response.statusCode}\n'
       'Message: $errorMessage\n'
       'Details: $errorDetails',
     );
 
-    throw ServerException('$statusCode, $errorMessage. $errorDetails');
+    throw ServerException(
+      '${response.statusCode}, $errorMessage. $errorDetails',
+    );
   }
 
   Uri _buildUri(

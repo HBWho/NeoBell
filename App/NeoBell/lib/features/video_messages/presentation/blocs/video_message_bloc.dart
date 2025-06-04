@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:neobell/features/video_messages/domain/entities/video_message.dart';
 import '../../domain/use_cases/delete_message.dart';
 import '../../domain/use_cases/generate_view_url.dart';
 import '../../domain/use_cases/get_video_messages.dart';
@@ -17,11 +18,11 @@ class VideoMessageBloc extends Bloc<VideoMessageEvent, VideoMessageState> {
     required GenerateViewUrl generateViewUrl,
     required MarkAsViewed markAsViewed,
     required DeleteMessage deleteMessage,
-  })  : _getVideoMessages = getVideoMessages,
-        _generateViewUrl = generateViewUrl,
-        _markAsViewed = markAsViewed,
-        _deleteMessage = deleteMessage,
-        super(VideoMessageInitial()) {
+  }) : _getVideoMessages = getVideoMessages,
+       _generateViewUrl = generateViewUrl,
+       _markAsViewed = markAsViewed,
+       _deleteMessage = deleteMessage,
+       super(VideoMessageInitial()) {
     on<GetVideoMessagesEvent>(_onGetVideoMessages);
     on<GenerateViewUrlEvent>(_onGenerateViewUrl);
     on<MarkAsViewedEvent>(_onMarkAsViewed);
@@ -46,7 +47,7 @@ class VideoMessageBloc extends Bloc<VideoMessageEvent, VideoMessageState> {
     );
 
     result.fold(
-      (failure) => emit(VideoMessageError(failure.message)),
+      (failure) => emit(VideoMessageError(failure.message, messages: [])),
       (messages) => emit(VideoMessagesLoadSuccess(messages: messages)),
     );
   }
@@ -55,13 +56,21 @@ class VideoMessageBloc extends Bloc<VideoMessageEvent, VideoMessageState> {
     GenerateViewUrlEvent event,
     Emitter<VideoMessageState> emit,
   ) async {
-    emit(VideoMessageLoading());
+    emit(VideoMessageLoading(messages: List.from(state.messages)));
 
     final result = await _generateViewUrl(event.messageId);
 
     result.fold(
-      (failure) => emit(VideoMessageError(failure.message)),
-      (url) => emit(ViewUrlGenerated(url: url, messageId: event.messageId)),
+      (failure) => emit(
+        VideoMessageError(failure.message, messages: List.from(state.messages)),
+      ),
+      (url) => emit(
+        ViewUrlGenerated(
+          url: url,
+          messageId: event.messageId,
+          messages: List.from(state.messages),
+        ),
+      ),
     );
   }
 
@@ -69,13 +78,22 @@ class VideoMessageBloc extends Bloc<VideoMessageEvent, VideoMessageState> {
     MarkAsViewedEvent event,
     Emitter<VideoMessageState> emit,
   ) async {
-    emit(VideoMessageLoading());
-
     final result = await _markAsViewed(event.messageId);
 
     result.fold(
-      (failure) => emit(VideoMessageError(failure.message)),
-      (_) => emit(MessageMarkedAsViewed(event.messageId)),
+      (failure) => emit(
+        VideoMessageError(failure.message, messages: List.from(state.messages)),
+      ),
+      (_) {
+        List<VideoMessage> updatedMessages =
+            state.messages.map((msg) {
+              if (msg.messageId == event.messageId) {
+                return msg.copyWith(isViewed: true);
+              }
+              return msg;
+            }).toList();
+        emit(VideoMessagesLoadSuccess(messages: updatedMessages));
+      },
     );
   }
 
@@ -83,13 +101,19 @@ class VideoMessageBloc extends Bloc<VideoMessageEvent, VideoMessageState> {
     DeleteMessageEvent event,
     Emitter<VideoMessageState> emit,
   ) async {
-    emit(VideoMessageLoading());
+    emit(VideoMessageLoading(messages: state.messages));
 
     final result = await _deleteMessage(event.messageId);
 
     result.fold(
-      (failure) => emit(VideoMessageError(failure.message)),
-      (_) => emit(MessageDeleted(event.messageId)),
+      (failure) => emit(
+        VideoMessageError(failure.message, messages: List.from(state.messages)),
+      ),
+      (_) {
+        List<VideoMessage> messages = List.from(state.messages);
+        messages.removeWhere((msg) => msg.messageId == event.messageId);
+        emit(MessageDeleted(event.messageId, messages: messages));
+      },
     );
   }
 }

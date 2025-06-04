@@ -9,7 +9,7 @@ import '../datasources/video_message_remote_data_source.dart';
 class VideoMessageRepositoryImpl implements VideoMessageRepository {
   final VideoMessageRemoteDataSource remoteDataSource;
 
-  VideoMessageRepositoryImpl({required this.remoteDataSource});
+  VideoMessageRepositoryImpl(this.remoteDataSource);
 
   @override
   Future<Either<Failure, List<VideoMessage>>> getVideoMessages({

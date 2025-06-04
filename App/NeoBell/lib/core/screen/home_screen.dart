@@ -9,21 +9,8 @@ import '../constants/constants.dart';
 import 'widgets/services_pages_widget.dart';
 import '../common/widgets/logo_and_help_widget.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  late final List<AppServices> _neobellServices;
-
-  @override
-  void initState() {
-    super.initState();
-    _neobellServices = AppServices.values;
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<AuthCubit, AuthState>(
@@ -54,7 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const LogoAndHelpWidget(logout: true),
                 const SizedBox(height: 10),
                 Text(
-                  'Bem-vindo ${user.name ?? user.email}',
+                  'Welcome ${user.name ?? user.email}',
                   style: const TextStyle(
                     fontSize: 25,
                     fontWeight: FontWeight.bold,
@@ -62,7 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'Sistema NeoBell',
+                  'NeoBell System',
                   style: TextStyle(
                     fontSize: 18,
                     color: Colors.grey[600],
@@ -104,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             mainAxisSpacing: 20,
                             childAspectRatio: 1.0,
                             children: [
-                              for (var service in _neobellServices)
+                              for (var service in AppServices.values)
                                 ServicesPagesWidget(
                                   icon: service.icon,
                                   text: service.name,

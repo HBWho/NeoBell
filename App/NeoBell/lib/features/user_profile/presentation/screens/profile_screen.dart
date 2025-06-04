@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:neobell/core/utils/email_checker_utils.dart';
 
 import '../../../../core/common/widgets/base_screen_widget.dart';
+import '../../../../core/utils/show_snackbar.dart';
 import '../cubit/user_profile_cubit.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -17,6 +19,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _emailController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    final userProfileCubit = context.read<UserProfileCubit>();
+    if (userProfileCubit.state is! UserProfileLoaded) {
+      userProfileCubit.loadProfile();
+    }
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
@@ -27,12 +38,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return BaseScreenWidget(
       title: 'Profile',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: () {
+            context.read<UserProfileCubit>().loadProfile();
+          },
+        ),
+      ],
       body: BlocConsumer<UserProfileCubit, UserProfileState>(
         listener: (context, state) {
           if (state is UserProfileError) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(state.message)));
+            showSnackBar(context, message: state.message, isError: true);
+          } else if (state is UserProfileLoaded && state.message != null) {
+            showSnackBar(context, message: state.message!, isSucess: true);
           }
         },
         builder: (context, state) {
@@ -41,7 +60,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
 
           if (state is UserProfileLoaded) {
-            // Pre-fill the form with current profile data
             _nameController.text = state.profile.name;
             _emailController.text = state.profile.email;
 
@@ -90,59 +108,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 if (value == null || value.isEmpty) {
                                   return 'Please enter your email';
                                 }
-                                if (!value.contains('@')) {
+                                if (!isValidEmail(value)) {
                                   return 'Please enter a valid email';
                                 }
                                 return null;
                               },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'NFC Tags',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            if (state.profile.nfcTags.isEmpty)
-                              const Text('No NFC tags registered')
-                            else
-                              ListView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: state.profile.nfcTags.length,
-                                itemBuilder: (context, index) {
-                                  final tag = state.profile.nfcTags[index];
-                                  return ListTile(
-                                    title: Text('Tag ${index + 1}'),
-                                    subtitle: Text(tag),
-                                    trailing: IconButton(
-                                      icon: const Icon(Icons.delete),
-                                      onPressed: () {
-                                        // TODO: Implement tag removal
-                                      },
-                                    ),
-                                  );
-                                },
-                              ),
-                            const SizedBox(height: 8),
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                // TODO: Navigate to NFC registration screen
-                              },
-                              icon: const Icon(Icons.add),
-                              label: const Text('Add NFC Tag'),
                             ),
                           ],
                         ),

@@ -28,7 +28,17 @@ enum ApiEndpoints {
   getVideoMessages('messages'),
   generateViewUrl('messages/{message_id}/view-url'),
   markAsViewed('messages/{message_id}'),
-  deleteMessage('messages/{message_id}');
+  deleteMessage('messages/{message_id}'),
+
+  // Visitor Permissions endpoints
+  getVisitorPermissions('visitors'),
+  generateVisitorImageUrl('visitors/{face_tag_id}/image-url'),
+  updateVisitorPermission('visitors/{face_tag_id}'),
+  deleteVisitorPermission('visitors/{face_tag_id}'),
+
+  // Activity Logs endpoints
+  getActivityLogs('activity-logs'),
+  getActivityLogDetails('activity-logs/{log_source_id}/{timestamp_uuid}');
 
   final String path;
   const ApiEndpoints(this.path);

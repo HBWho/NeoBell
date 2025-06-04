@@ -30,12 +30,8 @@ abstract class VideoMessageRemoteDataSource {
 
 class VideoMessageRemoteDataSourceImpl implements VideoMessageRemoteDataSource {
   final ApiService apiService;
-  final String jwtToken;
 
-  VideoMessageRemoteDataSourceImpl({
-    required this.apiService,
-    required this.jwtToken,
-  });
+  VideoMessageRemoteDataSourceImpl(this.apiService);
 
   @override
   Future<List<VideoMessageModel>> getVideoMessages({
@@ -64,7 +60,7 @@ class VideoMessageRemoteDataSourceImpl implements VideoMessageRemoteDataSource {
       queryParams: queryParams,
     );
 
-    final List<dynamic> jsonList = response['items'];
+    final List<dynamic> jsonList = response['messages'];
     return jsonList.map((json) => VideoMessageModel.fromJson(json)).toList();
   }
 

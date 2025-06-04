@@ -2,26 +2,16 @@ import '../../domain/entities/device.dart';
 
 class DeviceModel extends Device {
   const DeviceModel({
-    required String sbcId,
-    required String ownerUserId,
-    required String deviceFriendlyName,
-    required String userRoleOnDevice,
-    required String status,
-    String? firmwareVersion,
-    required DateTime registeredAt,
-    required DateTime lastSeen,
-    NetworkInfoModel? networkInfo,
-  }) : super(
-          sbcId: sbcId,
-          ownerUserId: ownerUserId,
-          deviceFriendlyName: deviceFriendlyName,
-          userRoleOnDevice: userRoleOnDevice,
-          status: status,
-          firmwareVersion: firmwareVersion,
-          registeredAt: registeredAt,
-          lastSeen: lastSeen,
-          networkInfo: networkInfo,
-        );
+    required super.sbcId,
+    required super.ownerUserId,
+    required super.deviceFriendlyName,
+    required super.userRoleOnDevice,
+    required super.status,
+    super.firmwareVersion,
+    required super.registeredAt,
+    required super.lastSeen,
+    NetworkInfoModel? super.networkInfo,
+  });
 
   factory DeviceModel.fromJson(Map<String, dynamic> json) {
     return DeviceModel(
@@ -33,9 +23,10 @@ class DeviceModel extends Device {
       firmwareVersion: json['firmware_version'],
       registeredAt: DateTime.parse(json['registered_at']),
       lastSeen: DateTime.parse(json['last_seen']),
-      networkInfo: json['network_info'] != null
-          ? NetworkInfoModel.fromJson(json['network_info'])
-          : null,
+      networkInfo:
+          json['network_info'] != null
+              ? NetworkInfoModel.fromJson(json['network_info'])
+              : null,
     );
   }
 
@@ -49,23 +40,20 @@ class DeviceModel extends Device {
       'firmware_version': firmwareVersion,
       'registered_at': registeredAt.toIso8601String(),
       'last_seen': lastSeen.toIso8601String(),
-      'network_info': networkInfo != null
-          ? (networkInfo as NetworkInfoModel).toJson()
-          : null,
+      'network_info':
+          networkInfo != null
+              ? (networkInfo as NetworkInfoModel).toJson()
+              : null,
     };
   }
 }
 
 class NetworkInfoModel extends NetworkInfo {
   const NetworkInfoModel({
-    required String ipAddress,
-    required String wifiSsid,
-    required int signalStrength,
-  }) : super(
-          ipAddress: ipAddress,
-          wifiSsid: wifiSsid,
-          signalStrength: signalStrength,
-        );
+    required super.ipAddress,
+    required super.wifiSsid,
+    required super.signalStrength,
+  });
 
   factory NetworkInfoModel.fromJson(Map<String, dynamic> json) {
     return NetworkInfoModel(

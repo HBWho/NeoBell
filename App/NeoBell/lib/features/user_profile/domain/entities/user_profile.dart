@@ -1,10 +1,13 @@
+import 'package:equatable/equatable.dart';
+import 'nfc_tag.dart';
+
 enum UserRole { owner, resident }
 
-class UserProfile {
+class UserProfile extends Equatable {
   final String id;
   final String email;
   final String name;
-  final List<String> nfcTags;
+  final List<NfcTag> nfcTags;
 
   const UserProfile({
     required this.id,
@@ -18,8 +21,7 @@ class UserProfile {
     String? username,
     String? email,
     String? name,
-    String? deviceToken,
-    List<String>? nfcTags,
+    List<NfcTag>? nfcTags,
     UserRole? role,
   }) {
     return UserProfile(
@@ -29,4 +31,7 @@ class UserProfile {
       nfcTags: nfcTags ?? this.nfcTags,
     );
   }
+
+  @override
+  List<Object?> get props => [id, email, name, nfcTags];
 }

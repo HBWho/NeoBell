@@ -22,11 +22,6 @@ class InitDependencies {
         instanceName: 'secure',
       );
 
-    // Services
-    serviceLocator.registerLazySingleton<AuthInterceptorService>(
-      () => AuthInterceptorServiceImpl(),
-    );
-
     // Token Management
     serviceLocator
       ..registerLazySingleton<TokenRepository>(() => TokenRepositoryImpl())
@@ -38,15 +33,15 @@ class InitDependencies {
 
     // Api
     serviceLocator.registerLazySingleton<ApiService>(
-      () => ApiServiceImpl(
-        authInterceptorService: serviceLocator<AuthInterceptorService>(),
-        tokenManager: serviceLocator<TokenManager>(),
-      ),
+      () => ApiServiceImpl(tokenManager: serviceLocator<TokenManager>()),
     );
 
     _initAuth();
     _initNotifications();
     _initUserProfile();
+    _initVideoMessages();
+    _initVisitorPermissions();
+    _initActivityLogs();
   }
 
   static void _initAuth() {
@@ -173,6 +168,119 @@ class InitDependencies {
           updateDeviceToken: serviceLocator<UpdateDeviceToken>(),
           updateNfcTag: serviceLocator<UpdateNfcTag>(),
         ),
+      );
+  }
+
+  static void _initVideoMessages() {
+    serviceLocator
+      // DataSource
+      ..registerLazySingleton<VideoMessageRemoteDataSource>(
+        () => VideoMessageRemoteDataSourceImpl(serviceLocator<ApiService>()),
+        instanceName: InitDependenciesType.prod.name,
+      )
+      // Repository
+      ..registerLazySingleton<VideoMessageRepository>(
+        () => VideoMessageRepositoryImpl(
+          serviceLocator<VideoMessageRemoteDataSource>(instanceName: type),
+        ),
+      )
+      // UseCases
+      ..registerFactory(
+        () => DeleteMessage(serviceLocator<VideoMessageRepository>()),
+      )
+      ..registerFactory(
+        () => GenerateViewUrl(serviceLocator<VideoMessageRepository>()),
+      )
+      ..registerFactory(
+        () => GetVideoMessages(serviceLocator<VideoMessageRepository>()),
+      )
+      ..registerFactory(
+        () => MarkAsViewed(serviceLocator<VideoMessageRepository>()),
+      )
+      // Bloc
+      ..registerLazySingleton(
+        () => VideoMessageBloc(
+          deleteMessage: serviceLocator<DeleteMessage>(),
+          generateViewUrl: serviceLocator<GenerateViewUrl>(),
+          getVideoMessages: serviceLocator<GetVideoMessages>(),
+          markAsViewed: serviceLocator<MarkAsViewed>(),
+        ),
+      );
+  }
+
+  static void _initVisitorPermissions() {
+    serviceLocator
+      // DataSource
+      ..registerLazySingleton<VisitorPermissionRemoteDataSource>(
+        () => VisitorPermissionRemoteDataSourceImpl(
+          apiService: serviceLocator<ApiService>(),
+        ),
+        instanceName: InitDependenciesType.prod.name,
+      )
+      // Repository
+      ..registerLazySingleton<VisitorPermissionRepository>(
+        () => VisitorPermissionRepositoryImpl(
+          remoteDataSource: serviceLocator<VisitorPermissionRemoteDataSource>(
+            instanceName: type,
+          ),
+        ),
+      )
+      // UseCases
+      ..registerFactory(
+        () => GetVisitorPermissions(
+          serviceLocator<VisitorPermissionRepository>(),
+        ),
+      )
+      ..registerFactory(
+        () => GetVisitorDetailsWithImage(
+          serviceLocator<VisitorPermissionRepository>(),
+        ),
+      )
+      ..registerFactory(
+        () => UpdateVisitorPermission(
+          serviceLocator<VisitorPermissionRepository>(),
+        ),
+      )
+      ..registerFactory(
+        () => DeleteVisitorPermission(
+          serviceLocator<VisitorPermissionRepository>(),
+        ),
+      )
+      // Bloc
+      ..registerLazySingleton(
+        () => VisitorPermissionBloc(
+          getVisitorPermissions: serviceLocator<GetVisitorPermissions>(),
+          getVisitorDetailsWithImage:
+              serviceLocator<GetVisitorDetailsWithImage>(),
+          updateVisitorPermission: serviceLocator<UpdateVisitorPermission>(),
+          deleteVisitorPermission: serviceLocator<DeleteVisitorPermission>(),
+        ),
+      );
+  }
+
+  static void _initActivityLogs() {
+    serviceLocator
+      // DataSource
+      ..registerLazySingleton<ActivityLogRemoteDataSource>(
+        () => ActivityLogRemoteDataSourceImpl(serviceLocator<ApiService>()),
+        instanceName: InitDependenciesType.prod.name,
+      )
+      // Repository
+      ..registerLazySingleton<ActivityLogRepository>(
+        () => ActivityLogRepositoryImpl(
+          remoteDataSource: serviceLocator<ActivityLogRemoteDataSource>(
+            instanceName: type,
+          ),
+        ),
+      )
+      // UseCases
+      ..registerFactory(
+        () => GetActivityLogs(serviceLocator<ActivityLogRepository>()),
+      )
+      // Bloc
+      ..registerLazySingleton(
+        () =>
+            ActivityLogBloc(getActivityLogs: serviceLocator<GetActivityLogs>()),
       );
   }
 }

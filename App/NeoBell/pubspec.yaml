@@ -33,6 +33,7 @@ dependencies:
 
   # External communication dependencies
   http: ^1.1.2 # HTTP requests
+  nfc_manager: ^4.0.2 # NFC manager
   permission_handler: ^11.3.1 # Permission handler
   flutter_local_notifications: ^18.0.1 # Local notifications
   firebase_core: ^3.10.1 # Firebase core
@@ -41,7 +42,7 @@ dependencies:
   # Video, Camera, and Image dependencies
   mobile_scanner: ^6.0.2 # New QR_Code reader
   image_picker: ^1.0.7 # Image picker for camera and gallery
-  video_player: ^2.7.0  # (ou a última versão estável)
+  video_player: ^2.10.0
 
   # UI dependencies
   cupertino_icons: ^1.0.8 # Cupertino icons

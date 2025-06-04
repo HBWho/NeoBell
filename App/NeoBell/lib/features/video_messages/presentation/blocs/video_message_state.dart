@@ -2,22 +2,27 @@ import 'package:equatable/equatable.dart';
 import '../../domain/entities/video_message.dart';
 
 abstract class VideoMessageState extends Equatable {
-  const VideoMessageState();
+  final List<VideoMessage> messages;
+  const VideoMessageState({this.messages = const []});
 
   @override
-  List<Object?> get props => [];
+  List<Object?> get props => [messages];
 }
 
 class VideoMessageInitial extends VideoMessageState {}
 
-class VideoMessageLoading extends VideoMessageState {}
+class VideoMessageLoading extends VideoMessageState {
+  const VideoMessageLoading({super.messages});
+
+  @override
+  List<Object?> get props => [messages];
+}
 
 class VideoMessagesLoadSuccess extends VideoMessageState {
-  final List<VideoMessage> messages;
   final String? lastEvaluatedKey;
 
   const VideoMessagesLoadSuccess({
-    required this.messages,
+    required super.messages,
     this.lastEvaluatedKey,
   });
 
@@ -28,7 +33,7 @@ class VideoMessagesLoadSuccess extends VideoMessageState {
 class VideoMessageError extends VideoMessageState {
   final String message;
 
-  const VideoMessageError(this.message);
+  const VideoMessageError(this.message, {super.messages});
 
   @override
   List<Object> get props => [message];
@@ -41,26 +46,18 @@ class ViewUrlGenerated extends VideoMessageState {
   const ViewUrlGenerated({
     required this.url,
     required this.messageId,
+    super.messages,
   });
 
   @override
-  List<Object> get props => [url, messageId];
-}
-
-class MessageMarkedAsViewed extends VideoMessageState {
-  final String messageId;
-
-  const MessageMarkedAsViewed(this.messageId);
-
-  @override
-  List<Object> get props => [messageId];
+  List<Object> get props => [url, messageId, messages];
 }
 
 class MessageDeleted extends VideoMessageState {
   final String messageId;
 
-  const MessageDeleted(this.messageId);
+  const MessageDeleted(this.messageId, {super.messages});
 
   @override
-  List<Object> get props => [messageId];
+  List<Object> get props => [messageId, messages];
 }

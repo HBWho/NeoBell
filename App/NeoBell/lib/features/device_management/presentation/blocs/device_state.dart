@@ -1,34 +1,59 @@
 part of 'device_bloc.dart';
 
 @immutable
-sealed class DeviceState {}
+abstract class DeviceState extends Equatable {
+  const DeviceState();
 
-final class DeviceInitial extends DeviceState {}
+  @override
+  List<Object?> get props => [];
+}
 
-final class DeviceLoading extends DeviceState {}
+class DeviceInitial extends DeviceState {}
 
-final class DeviceSuccess extends DeviceState {
+class DeviceLoading extends DeviceState {}
+
+class DeviceSuccess extends DeviceState {
   final List<Device> devices;
-  DeviceSuccess(this.devices);
+
+  const DeviceSuccess(this.devices);
+
+  @override
+  List<Object> get props => [devices];
 }
 
-final class DeviceDetailsLoaded extends DeviceState {
+class DeviceDetailsLoaded extends DeviceState {
   final Device device;
-  DeviceDetailsLoaded(this.device);
+
+  const DeviceDetailsLoaded(this.device);
+
+  @override
+  List<Object> get props => [device];
 }
 
-final class DeviceUsersLoaded extends DeviceState {
+class DeviceUsersLoaded extends DeviceState {
   final List<DeviceUser> users;
   final String deviceId;
-  DeviceUsersLoaded(this.users, this.deviceId);
+
+  const DeviceUsersLoaded(this.users, this.deviceId);
+
+  @override
+  List<Object> get props => [users, deviceId];
 }
 
-final class DeviceOperationSuccess extends DeviceState {
+class DeviceOperationSuccess extends DeviceState {
   final String message;
-  DeviceOperationSuccess(this.message);
+
+  const DeviceOperationSuccess(this.message);
+
+  @override
+  List<Object> get props => [message];
 }
 
-final class DeviceFailure extends DeviceState {
+class DeviceFailure extends DeviceState {
   final String message;
-  DeviceFailure(this.message);
+
+  const DeviceFailure(this.message);
+
+  @override
+  List<Object> get props => [message];
 }

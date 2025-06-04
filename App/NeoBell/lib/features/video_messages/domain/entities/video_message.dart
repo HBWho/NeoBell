@@ -3,32 +3,35 @@ import 'package:equatable/equatable.dart';
 class VideoMessage extends Equatable {
   final String messageId;
   final String sbcId;
+  final String visitorId;
+  final String visitorName;
   final String deviceFriendlyName;
   final DateTime recordedAt;
   final int durationSec;
-  final String? visitorNameIfKnown;
   final bool isViewed;
 
   const VideoMessage({
     required this.messageId,
     required this.sbcId,
+    required this.visitorId,
+    required this.visitorName,
     required this.deviceFriendlyName,
     required this.recordedAt,
     required this.durationSec,
-    this.visitorNameIfKnown,
     this.isViewed = false,
   });
 
   @override
   List<Object?> get props => [
-        messageId,
-        sbcId,
-        deviceFriendlyName,
-        recordedAt,
-        durationSec,
-        visitorNameIfKnown,
-        isViewed,
-      ];
+    messageId,
+    sbcId,
+    deviceFriendlyName,
+    recordedAt,
+    durationSec,
+    visitorName,
+    visitorId,
+    isViewed,
+  ];
 
   VideoMessage copyWith({
     String? messageId,
@@ -36,7 +39,8 @@ class VideoMessage extends Equatable {
     String? deviceFriendlyName,
     DateTime? recordedAt,
     int? durationSec,
-    String? visitorNameIfKnown,
+    String? visitorName,
+    String? visitorId,
     bool? isViewed,
   }) {
     return VideoMessage(
@@ -45,7 +49,8 @@ class VideoMessage extends Equatable {
       deviceFriendlyName: deviceFriendlyName ?? this.deviceFriendlyName,
       recordedAt: recordedAt ?? this.recordedAt,
       durationSec: durationSec ?? this.durationSec,
-      visitorNameIfKnown: visitorNameIfKnown ?? this.visitorNameIfKnown,
+      visitorName: visitorName ?? this.visitorName,
+      visitorId: visitorId ?? this.visitorId,
       isViewed: isViewed ?? this.isViewed,
     );
   }

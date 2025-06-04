@@ -102,28 +102,6 @@ sequenceDiagram
    - `device_removed`
    - `error_occurred`
 
-## Integration Points
-
-### AWS Services
-- IoT Core: Device event ingestion
-- DynamoDB: Log storage
-- Lambda: Event processing
-- API Gateway: REST API
-- CloudWatch: Monitoring
-
-### Related Workflows
-1. Event Logging Process
-   - Event detection
-   - Event processing
-   - Log storage
-   - User notification
-
-2. Log Retrieval Process
-   - Query optimization
-   - Data aggregation
-   - Access control
-   - Data presentation
-
 ## Error Handling
 
 | Status Code | Description | Common Causes |
@@ -132,89 +110,6 @@ sequenceDiagram
 | 401 | Unauthorized | Invalid token |
 | 403 | Forbidden | Access denied |
 | 500 | Server Error | Processing error |
-
-## Security Considerations
-
-### Access Control
-1. Device-specific access
-2. User role validation
-3. Time-based access
-4. Data privacy
-
-### Data Protection
-1. Sensitive data handling
-2. Retention policies
-3. Access logging
-4. Encryption
-
-## Performance Optimization
-
-### Query Patterns
-1. Time-based partitioning
-2. GSI optimization
-3. Selective attribute projection
-4. Efficient filtering
-
-### Data Management
-1. TTL implementation
-2. Archival strategy
-3. Hot/cold data separation
-4. Compression
-
-## Monitoring
-
-### Metrics
-1. Event ingestion rate
-2. Query performance
-3. Storage usage
-4. Error rates
-5. Access patterns
-
-### Alerts
-1. High error rates
-2. Query timeouts
-3. Storage thresholds
-4. Access anomalies
-
-## Best Practices
-
-### Event Logging
-1. Standardized format
-2. Required fields
-3. Validation rules
-4. Error handling
-
-### Data Lifecycle
-1. Retention periods
-2. Archival rules
-3. Cleanup processes
-4. Recovery procedures
-
-### Query Optimization
-1. Index design
-2. Filter efficiency
-3. Pagination strategy
-4. Cache utilization
-
-## Implementation Guidelines
-
-### Event Processing
-1. Asynchronous processing
-2. Batch operations
-3. Error recovery
-4. Duplicate handling
-
-### Data Access
-1. Permission mapping
-2. Data filtering
-3. Response formatting
-4. Cache strategy
-
-### Maintenance
-1. Index management
-2. Cleanup routines
-3. Performance monitoring
-4. Capacity planning
 
 ## Integration Examples
 

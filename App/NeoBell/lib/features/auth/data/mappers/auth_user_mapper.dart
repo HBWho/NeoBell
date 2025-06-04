@@ -4,7 +4,8 @@ import '../../domain/entities/auth_user.dart';
 /// Maps Cognito user attributes to AuthUser entity
 class AuthUserMapper {
   static AuthUser fromCognitoAttributes(
-      List<amplify.AuthUserAttribute> attributes) {
+    List<amplify.AuthUserAttribute> attributes,
+  ) {
     String? id;
     String? email;
     String? name;

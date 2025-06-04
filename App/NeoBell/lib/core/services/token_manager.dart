@@ -1,5 +1,6 @@
+import 'package:amplify_flutter/amplify_flutter.dart';
+
 import '../domain/repositories/token_repository.dart';
-import '../error/auth_exception.dart';
 import '../error/server_exception.dart';
 
 abstract class TokenManager {
@@ -18,12 +19,10 @@ class TokenManagerImpl implements TokenManager {
   Future<String> getValidToken() async {
     try {
       final token = await _tokenRepository.getToken();
-      if (token == null) throw AuthException(message: 'No valid token found');
+      if (token == null) throw AuthServiceException('No valid token found');
       return token;
     } catch (e) {
-      throw AuthException(
-        message: 'Failed to get valid token: ${e.toString()}',
-      );
+      throw AuthServiceException('Failed to get valid token: ${e.toString()}');
     }
   }
 
@@ -37,7 +36,7 @@ class TokenManagerImpl implements TokenManager {
     try {
       final newToken = await _tokenRepository.refreshToken();
       if (newToken != null) return newToken;
-      throw AuthException(message: 'Failed to refresh token: null response');
+      throw AuthServiceException('Failed to refresh token: null response');
     } catch (e) {
       throw ServerException('Failed to refresh token: ${e.toString()}');
     }

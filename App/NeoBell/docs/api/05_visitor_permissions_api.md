@@ -49,7 +49,7 @@ sequenceDiagram
             "user_id": "cognito_sub_uuid",
             "face_tag_id": "face_uuid_1",
             "visitor_name": "Carteiro João",
-            "permission_level": "allow_message",
+            "permission_level": "Allowed",
             "created_at": "YYYY-MM-DDTHH:mm:ssZ",
             "last_updated_at": "YYYY-MM-DDTHH:mm:ssZ"
         }
@@ -66,7 +66,7 @@ sequenceDiagram
 ```json
 {
     "visitor_name": "Carteiro João (Amigo)",
-    "permission_level": "allow_speak"
+    "permission_level": "Allowed"
 }
 ```
 
@@ -90,10 +90,8 @@ sequenceDiagram
 ```
 
 ### Permission Levels
-- `allow_message`: Can leave video messages
-- `allow_speak`: Can interact through intercom
-- `block`: No access allowed
-- `notify_only`: Only notify owner of presence
+- `Allowed`: Can leave video messages
+- `Denied`: No access allowed
 
 ## Integration Points
 

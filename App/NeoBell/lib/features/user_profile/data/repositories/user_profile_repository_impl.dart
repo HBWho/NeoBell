@@ -2,6 +2,7 @@ import 'package:fpdart/fpdart.dart';
 
 import '../../../../core/error/failure.dart';
 import '../../../../core/error/server_exception.dart';
+import '../../domain/entities/nfc_tag.dart';
 import '../../domain/entities/user_profile.dart';
 import '../../domain/repositories/user_profile_repository.dart';
 import '../datasources/user_profile_remote_data_source.dart';
@@ -52,9 +53,13 @@ class UserProfileRepositoryImpl implements UserProfileRepository {
   @override
   Future<Either<Failure, Unit>> registerNfcTag({
     required String tagId,
+    required String friendlyName,
   }) async {
     try {
-      await remoteDataSource.registerNfcTag(tagId: tagId);
+      await remoteDataSource.registerNfcTag(
+        tagId: tagId,
+        friendlyName: friendlyName,
+      );
       return const Right(unit);
     } on ServerException catch (e) {
       return Left(Failure(e.message));
@@ -78,9 +83,7 @@ class UserProfileRepositoryImpl implements UserProfileRepository {
   }
 
   @override
-  Future<Either<Failure, Unit>> removeNfcTag({
-    required String tagId,
-  }) async {
+  Future<Either<Failure, Unit>> removeNfcTag({required String tagId}) async {
     try {
       await remoteDataSource.removeNfcTag(tagId: tagId);
       return const Right(unit);
@@ -90,7 +93,7 @@ class UserProfileRepositoryImpl implements UserProfileRepository {
   }
 
   @override
-  Future<Either<Failure, List<String>>> getNfcTags() async {
+  Future<Either<Failure, List<NfcTag>>> getNfcTags() async {
     try {
       final tags = await remoteDataSource.getNfcTags();
       return Right(tags);

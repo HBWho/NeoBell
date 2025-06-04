@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:logger/logger.dart';
+import 'package:nfc_manager/nfc_manager.dart';
 
 class NfcScanDialog extends StatefulWidget {
   const NfcScanDialog({super.key});
@@ -7,189 +10,120 @@ class NfcScanDialog extends StatefulWidget {
   State<NfcScanDialog> createState() => _NfcScanDialogState();
 }
 
-class _NfcScanDialogState extends State<NfcScanDialog>
-    with TickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _pulseAnimation;
-  bool _isScanning = true;
-  bool _tagDetected = false;
-  String _tagId = '';
+class _NfcScanDialogState extends State<NfcScanDialog> {
+  final Logger _logger = Logger();
+  bool _isScanning = false;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    );
-    _pulseAnimation = Tween<double>(
-      begin: 0.8,
-      end: 1.2,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _animationController.repeat(reverse: true);
-    _simulateNfcScan();
+    _startScan();
   }
 
-  Future<void> _simulateNfcScan() async {
-    // Simulate scanning delay
-    await Future.delayed(const Duration(seconds: 3));
-    
-    if (mounted) {
-      _animationController.stop();
+  @override
+  void dispose() {
+    super.dispose();
+    NfcManager.instance.stopSession().catchError((_) {});
+  }
+
+  Future<void> _startScan() async {
+    setState(() {
+      _isScanning = true;
+      _error = null;
+    });
+
+    try {
+      bool isAvailable = await NfcManager.instance.isAvailable();
+      if (!isAvailable) {
+        setState(() {
+          _error = 'NFC is not supported on this device';
+          _isScanning = false;
+        });
+        return;
+      }
+
+      await NfcManager.instance.startSession(
+        pollingOptions: {NfcPollingOption.iso14443, NfcPollingOption.iso15693},
+        onDiscovered: (NfcTag tag) async {
+          _logger.i('Tag NFC detectada: $tag');
+          try {
+            final data = tag.data;
+            List<int>? tagId;
+
+            if (data is Map) {
+              final nfcaData = data['nfca'];
+              if (nfcaData is Map && nfcaData.containsKey('identifier')) {
+                tagId = List<int>.from(nfcaData['identifier']);
+              }
+            }
+
+            if (tagId == null) {
+              setState(() => _error = 'The NFC tag is not supported');
+              return;
+            }
+
+            final hexId = tagId
+                .map((e) => e.toRadixString(16).padLeft(2, '0'))
+                .join(':');
+            if (mounted) {
+              Navigator.of(context).pop(hexId);
+            }
+          } catch (e) {
+            setState(() => _error = 'Erro ao ler tag: $e');
+          }
+        },
+      );
+    } on PlatformException catch (e) {
       setState(() {
+        _error = '${e.message}';
         _isScanning = false;
-        _tagDetected = true;
-        // Generate a realistic NFC tag ID
-        _tagId = '04-AF-98-C2';
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Error starting NFC scanner: $e';
+        _isScanning = false;
       });
     }
   }
 
   @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
+    return AlertDialog(
+      title: const Text('Scanning NFC Tag'),
+      content: SizedBox(
+        height: 150,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (_isScanning) ...[
-              // Scanning State
-              AnimatedBuilder(
-                animation: _pulseAnimation,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: _pulseAnimation.value,
-                    child: Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        color: Colors.deepOrange.shade100,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.deepOrange,
-                          width: 3,
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.nfc,
-                        size: 60,
-                        color: Colors.deepOrange,
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Escaneando NFC',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.deepOrange.shade800,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Mantenha a tag NFC próxima ao dispositivo',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
-              ),
-              const SizedBox(height: 24),
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.deepOrange),
-              ),
+            if (_error != null) ...[
+              Icon(Icons.error_outline, color: Colors.red.shade700, size: 48),
               const SizedBox(height: 16),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancelar'),
-              ),
-            ] else if (_tagDetected) ...[
-              // Success State
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: Colors.green.shade100,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.green,
-                    width: 3,
-                  ),
-                ),
-                child: Icon(
-                  Icons.check_circle,
-                  size: 60,
-                  color: Colors.green,
-                ),
-              ),
-              const SizedBox(height: 24),
               Text(
-                'Tag NFC Detectada',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green.shade800,
-                ),
+                _error!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.red.shade700),
               ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'ID: $_tagId',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Cancelar'),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () => Navigator.of(context).pop(_tagId),
-                    icon: const Icon(Icons.save),
-                    label: const Text('Confirmar'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ],
+            ] else if (_isScanning) ...[
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              const Text(
+                'Bring the NFC tag close to the device',
+                textAlign: TextAlign.center,
               ),
             ],
           ],
         ),
       ),
+      actions: [
+        if (_error != null) ...[
+          TextButton(onPressed: _startScan, child: const Text('Try Again')),
+        ],
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
     );
   }
-} 
+}

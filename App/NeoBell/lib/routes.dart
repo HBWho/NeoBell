@@ -4,19 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logger/logger.dart';
+import 'package:neobell/core/screen/splash_screen.dart';
 import 'package:neobell/features/user_profile/presentation/screens/profile_screen.dart';
+import 'package:neobell/features/video_messages/presentation/blocs/video_message_bloc.dart';
+import 'package:neobell/features/video_messages/presentation/blocs/video_message_state.dart';
+import 'package:neobell/features/video_messages/presentation/screens/video_messages_screen.dart';
+import 'package:neobell/features/video_messages/presentation/screens/watch_video_screen.dart';
 
 import 'core/helper/ui_helper.dart';
 import 'core/services/navigation_service.dart';
 import 'core/screen/home_screen.dart';
-import 'features/activities/presentation/screens/all_activities_screen.dart';
+import 'features/activity_logs/presentation/screens/activity_logs_screen.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
-import 'features/delivery/presentation/screens/create_delivery_screen.dart';
-import 'features/delivery/presentation/screens/delivery_page_screen.dart';
 import 'features/members/presentation/screens/registered_members_screen.dart';
-import 'features/nfc/presentation/screens/all_registered_nfc_tags_screen.dart';
-import 'features/nfc/presentation/screens/nfc_register_screen.dart';
-import 'features/visitors/presentation/screens/visitor_notifications_screen.dart';
+import 'features/nfc/presentation/screens/nfc_screen.dart';
+import 'features/visitor_permissions/presentation/screens/visitor_permissions_screen.dart';
 import 'init_dependencies_imports.dart';
 
 class RouterMain {
@@ -75,7 +77,7 @@ class RouterMain {
         path: '/splash',
         name: 'splash',
         builder: (context, state) {
-          return const Center(child: CircularProgressIndicator());
+          return SplashScreen();
         },
       ),
       GoRoute(
@@ -84,8 +86,8 @@ class RouterMain {
         onExit: (context, state) async {
           final confirmed = await UIHelper.showDialogConfirmation(
             context,
-            title: 'Sair',
-            message: 'Deseja realmente sair?',
+            title: 'Logout',
+            message: 'Are you sure you want to log out?',
           );
           if (confirmed ?? false) {
             if (context.mounted) context.read<AuthCubit>().signOut();
@@ -94,7 +96,6 @@ class RouterMain {
           return false;
         },
         builder: (context, state) {
-          // return Center(child: Text('Home Screen Placeholder'));
           return HomeScreen();
         },
         routes: [
@@ -106,38 +107,55 @@ class RouterMain {
             },
           ),
           GoRoute(
-            path: '/all-activities',
-            name: 'all-activities',
+            path: '/activity-logs',
+            name: 'activity-logs',
             builder: (context, state) {
-              return AllActivitiesScreen();
+              return ActivityLogsScreen();
             },
           ),
           GoRoute(
             path: '/delivery-page',
             name: 'delivery-page',
             builder: (context, state) {
-              return DeliveryPageScreen();
+              return Container();
             },
           ),
           GoRoute(
-          path: '/delivery-records',
-          name: 'delivery-records',
-          builder: (context, state) => const AllDeliveryRecordsScreen(),
+            path: '/visitor-permissions',
+            name: 'visitor-permissions',
+            builder: (context, state) {
+              return VisitorPermissionsScreen();
+            },
           ),
           GoRoute(
-            path: '/visitor-notifications',
-            name: 'visitor-notifications',
+            path: '/video-messages',
+            name: 'video-messages',
             builder: (context, state) {
-              return VisitorNotificationsScreen();
+              return VideoMessagesScreen();
             },
-          ),
-            GoRoute(
-            path: '/visitor-notification-detail',
-            name: 'visitor-notification-detail',
-            builder: (context, state) {
-              final notification = state.extra! as Map<String, String>;
-              return VisitorNotificationDetailScreen(notification: notification);
-            },
+            routes: [
+              GoRoute(
+                path: '/:id/watch-video',
+                name: 'watch-video',
+                redirect: (context, state) {
+                  // Verify if everything is ok to access the video screen
+                  final videoMessageBloc = context.read<VideoMessageBloc>();
+                  final currentState = videoMessageBloc.state;
+                  final messageId = state.pathParameters['id'];
+                  // We check if the VideoMessageBloc is in a state that allows access to the video screen
+                  // and if the messageId matches the one in the state
+                  if (currentState is ViewUrlGenerated &&
+                      currentState.messageId == messageId) {
+                    return null;
+                  }
+                  return '/home/video-messages';
+                },
+                builder: (context, state) {
+                  final messageId = state.pathParameters['id']!;
+                  return WatchVideoScreen(messageId: messageId);
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: '/registered-members',
@@ -147,27 +165,17 @@ class RouterMain {
             },
           ),
           GoRoute(
-            path: '/nfc-register',
-            name: 'nfc-register',
+            path: '/nfc',
+            name: 'nfc',
             builder: (context, state) {
-              return NfcRegisterScreen();
+              return NfcScreen();
             },
-            routes: [
-              // Sub-route for all registered NFC tags
-              GoRoute(
-                path: '/all-tags',
-                name: 'all-nfc-tags',
-                builder: (context, state) {
-                  return AllRegisteredNfcTagsScreen();
-                },
-              ),
-            ],
           ),
           GoRoute(
             path: '/create-delivery',
             name: 'create-delivery',
             builder: (context, state) {
-              return CreateDeliveryScreen();
+              return Container();
             },
           ),
         ],

@@ -2,32 +2,32 @@ import '../../domain/entities/video_message.dart';
 
 class VideoMessageModel extends VideoMessage {
   const VideoMessageModel({
-    required String messageId,
-    required String sbcId,
-    required String deviceFriendlyName,
-    required DateTime recordedAt,
-    required int durationSec,
-    String? visitorNameIfKnown,
-    bool isViewed = false,
-  }) : super(
-          messageId: messageId,
-          sbcId: sbcId,
-          deviceFriendlyName: deviceFriendlyName,
-          recordedAt: recordedAt,
-          durationSec: durationSec,
-          visitorNameIfKnown: visitorNameIfKnown,
-          isViewed: isViewed,
-        );
+    required super.messageId,
+    required super.sbcId,
+
+    required super.deviceFriendlyName,
+    required super.recordedAt,
+    required super.durationSec,
+    required super.visitorName,
+    required super.visitorId,
+    super.isViewed,
+  });
 
   factory VideoMessageModel.fromJson(Map<String, dynamic> json) {
     return VideoMessageModel(
       messageId: json['message_id'],
       sbcId: json['sbc_id'],
-      deviceFriendlyName: json['device_friendly_name'],
+      deviceFriendlyName: json['device_friendly_name'] ?? '',
       recordedAt: DateTime.parse(json['recorded_at']),
-      durationSec: json['duration_sec'],
-      visitorNameIfKnown: json['visitor_name_if_known'],
-      isViewed: json['is_viewed'] ?? false,
+      durationSec: json['duration_sec'] ?? 0,
+      visitorName: json['visitor_name'],
+      visitorId: json['visitor_face_tag_id'],
+      isViewed:
+          json['is_viewed'] is bool
+              ? json['is_viewed']
+              : json['is_viewed'] is String
+              ? json['is_viewed'] == 'true'
+              : false,
     );
   }
 
@@ -38,7 +38,8 @@ class VideoMessageModel extends VideoMessage {
       'device_friendly_name': deviceFriendlyName,
       'recorded_at': recordedAt.toIso8601String(),
       'duration_sec': durationSec,
-      'visitor_name_if_known': visitorNameIfKnown,
+      'visitor_name': visitorName,
+      'visitor_face_tag_id': visitorId,
       'is_viewed': isViewed,
     };
   }
@@ -50,7 +51,8 @@ class VideoMessageModel extends VideoMessage {
       deviceFriendlyName: entity.deviceFriendlyName,
       recordedAt: entity.recordedAt,
       durationSec: entity.durationSec,
-      visitorNameIfKnown: entity.visitorNameIfKnown,
+      visitorName: entity.visitorName,
+      visitorId: entity.visitorId,
       isViewed: entity.isViewed,
     );
   }

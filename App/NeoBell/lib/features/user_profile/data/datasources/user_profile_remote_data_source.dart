@@ -1,6 +1,7 @@
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/data/api_service.dart';
 import '../../../../core/error/server_exception.dart';
+import '../models/nfc_tag_model.dart';
 import '../models/user_profile_model.dart';
 
 abstract class UserProfileRemoteDataSource {
@@ -10,13 +11,16 @@ abstract class UserProfileRemoteDataSource {
     required String email,
   });
   Future<void> updateDeviceToken({required String deviceToken});
-  Future<void> registerNfcTag({required String tagId});
+  Future<void> registerNfcTag({
+    required String tagId,
+    required String friendlyName,
+  });
   Future<void> updateNfcTag({
     required String tagId,
     required String friendlyName,
   });
   Future<void> removeNfcTag({required String tagId});
-  Future<List<String>> getNfcTags();
+  Future<List<NfcTagModel>> getNfcTags();
 }
 
 class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
@@ -31,6 +35,8 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
         endPoint: ApiEndpoints.getUserProfile,
       );
       return UserProfileModel.fromJson(response);
+    } on ServerException {
+      rethrow;
     } catch (e) {
       throw ServerException('Failed to convert profile data to model');
     }
@@ -68,11 +74,14 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
   }
 
   @override
-  Future<void> registerNfcTag({required String tagId}) async {
+  Future<void> registerNfcTag({
+    required String tagId,
+    required String friendlyName,
+  }) async {
     try {
       await _apiService.postData(
         endPoint: ApiEndpoints.registerNfcTag,
-        body: {'nfc_id_scanned': tagId},
+        body: {'nfc_id_scanned': tagId, "tag_friendly_name": friendlyName},
       );
     } catch (e) {
       throw ServerException('Failed to register NFC tag');
@@ -108,13 +117,13 @@ class UserProfileRemoteDataSourceImpl implements UserProfileRemoteDataSource {
   }
 
   @override
-  Future<List<String>> getNfcTags() async {
+  Future<List<NfcTagModel>> getNfcTags() async {
     try {
       final response = await _apiService.getData(
         endPoint: ApiEndpoints.listNfcTags,
       );
-      final List<dynamic> tags = response['nfc_tags'] ?? [];
-      return tags.map((tag) => tag['nfc_id_scanned'] as String).toList();
+      final List<dynamic> tags = response['tags'] ?? [];
+      return tags.map((tag) => NfcTagModel.fromJson(tag)).toList();
     } catch (e) {
       throw ServerException('Failed to get NFC tags');
     }

@@ -17,10 +17,16 @@ class UserProfileLoading extends UserProfileState {
 
 class UserProfileLoaded extends UserProfileState {
   final UserProfile profile;
-  const UserProfileLoaded(this.profile);
+  final String? message;
+
+  const UserProfileLoaded(this.profile, {this.message});
 
   @override
-  List<Object?> get props => [profile];
+  List<Object?> get props => [profile, message];
+
+  UserProfileLoaded copyWith({UserProfile? profile, String? message}) {
+    return UserProfileLoaded(profile ?? this.profile, message: message);
+  }
 }
 
 class UserProfileError extends UserProfileState {
