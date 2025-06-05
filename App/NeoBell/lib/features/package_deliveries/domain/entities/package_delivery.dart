@@ -51,9 +51,7 @@ class PackageDelivery extends Equatable {
     );
   }
 
-  bool get isReceived =>
-      status == PackageDeliveryStatus.inBox1 ||
-      status == PackageDeliveryStatus.inBox2;
+  bool get isReceived => status == PackageDeliveryStatus.delivered;
 
   bool get isRetrieved => status == PackageDeliveryStatus.retrievedByUser;
 
@@ -78,8 +76,7 @@ class PackageDelivery extends Equatable {
 
 enum PackageDeliveryStatus {
   pending,
-  inBox1,
-  inBox2,
+  delivered,
   retrievedByUser,
   cancelled;
 
@@ -87,12 +84,10 @@ enum PackageDeliveryStatus {
     switch (this) {
       case PackageDeliveryStatus.pending:
         return 'Pending';
-      case PackageDeliveryStatus.inBox1:
-        return 'In Box 1';
-      case PackageDeliveryStatus.inBox2:
-        return 'In Box 2';
+      case PackageDeliveryStatus.delivered:
+        return 'Delivered';
       case PackageDeliveryStatus.retrievedByUser:
-        return 'Retrieved';
+        return 'Retrieved by User';
       case PackageDeliveryStatus.cancelled:
         return 'Cancelled';
     }
@@ -102,10 +97,8 @@ enum PackageDeliveryStatus {
     switch (this) {
       case PackageDeliveryStatus.pending:
         return 'pending';
-      case PackageDeliveryStatus.inBox1:
-        return 'in_box1';
-      case PackageDeliveryStatus.inBox2:
-        return 'in_box2';
+      case PackageDeliveryStatus.delivered:
+        return 'delivered';
       case PackageDeliveryStatus.retrievedByUser:
         return 'retrieved_by_user';
       case PackageDeliveryStatus.cancelled:
@@ -117,10 +110,8 @@ enum PackageDeliveryStatus {
     switch (value) {
       case 'pending':
         return PackageDeliveryStatus.pending;
-      case 'in_box1':
-        return PackageDeliveryStatus.inBox1;
-      case 'in_box2':
-        return PackageDeliveryStatus.inBox2;
+      case 'delivered':
+        return PackageDeliveryStatus.delivered;
       case 'retrieved_by_user':
         return PackageDeliveryStatus.retrievedByUser;
       case 'cancelled':

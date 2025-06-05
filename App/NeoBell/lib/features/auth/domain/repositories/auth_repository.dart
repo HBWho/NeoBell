@@ -22,9 +22,7 @@ abstract interface class AuthRepository {
 
   Future<Either<Failure, Unit>> signOut();
 
-  Future<Either<Failure, Unit>> resetPassword({
-    required String username,
-  });
+  Future<Either<Failure, Unit>> resetPassword({required String username});
 
   Future<Either<Failure, Unit>> confirmResetPassword({
     required String username,
@@ -35,4 +33,9 @@ abstract interface class AuthRepository {
   Future<Either<Failure, AuthUser>> getCurrentUser();
 
   Future<Either<Failure, bool>> isSignedIn();
+
+  Future<Either<Failure, Unit>> updatePassword({
+    required String oldPassword,
+    required String newPassword,
+  });
 }

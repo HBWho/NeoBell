@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/common/widgets/base_screen_widget.dart';
 import '../../../../core/utils/show_snackbar.dart';
-import '../../../user_profile/presentation/cubit/user_profile_cubit.dart';
+import '../cubit/user_profile_cubit.dart';
 import '../widgets/nfc_scan_dialog.dart';
 
 class NfcScreen extends StatefulWidget {
@@ -25,8 +25,13 @@ class _NfcScreenState extends State<NfcScreen> {
     final userProfileCubit = context.read<UserProfileCubit>();
     if (userProfileCubit.state is! UserProfileLoaded) {
       userProfileCubit.loadProfile();
+      userProfileCubit.loadNfcTags();
+    } else if ((userProfileCubit.state as UserProfileLoaded)
+        .profile
+        .nfcTags
+        .isEmpty) {
+      userProfileCubit.loadNfcTags();
     }
-    userProfileCubit.loadNfcTags();
   }
 
   @override

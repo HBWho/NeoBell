@@ -12,6 +12,7 @@ import '../../domain/entities/auth_user.dart';
 import '../../domain/usecases/check_auth_status.dart';
 import '../../domain/usecases/sign_in.dart';
 import '../../domain/usecases/sign_out.dart';
+import '../../domain/usecases/update_password.dart';
 import '../../../user_profile/presentation/cubit/user_profile_cubit.dart';
 
 part 'auth_state.dart';
@@ -21,6 +22,7 @@ class AuthCubit extends Cubit<AuthState> {
   final SignIn _signIn;
   final SignOut _signOut;
   final CheckAuthStatus _checkAuthStatus;
+  final UpdatePassword _updatePassword;
   final TokenManager _tokenManager;
   final UserProfileCubit _userProfileCubit;
   final NotificationCubit _notificationCubit;
@@ -31,12 +33,14 @@ class AuthCubit extends Cubit<AuthState> {
     required SignIn signIn,
     required SignOut signOut,
     required CheckAuthStatus checkAuthStatus,
+    required UpdatePassword updatePassword,
     required TokenManager tokenManager,
     required UserProfileCubit userProfileCubit,
     required NotificationCubit notificationCubit,
   }) : _signIn = signIn,
        _signOut = signOut,
        _checkAuthStatus = checkAuthStatus,
+       _updatePassword = updatePassword,
        _tokenManager = tokenManager,
        _userProfileCubit = userProfileCubit,
        _notificationCubit = notificationCubit,
@@ -109,6 +113,22 @@ class AuthCubit extends Cubit<AuthState> {
 
   void sessionExpired() {
     emit(AuthSessionExpired());
+  }
+
+  Future<void> updatePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    emit(AuthInProgress());
+    final result = await _updatePassword(
+      UpdatePasswordParams(oldPassword: oldPassword, newPassword: newPassword),
+    );
+    result.fold((failure) => emit(AuthError(failure.message)), (_) {
+      // Voltar ao estado autenticado após sucesso
+      if (state is AuthInProgress) {
+        checkAuthStatus();
+      }
+    });
   }
 
   // Private method to handle FCM token update

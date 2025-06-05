@@ -4,7 +4,7 @@ class VideoMessage extends Equatable {
   final String messageId;
   final String sbcId;
   final String visitorId;
-  final String visitorName;
+  final String? visitorName;
   final String deviceFriendlyName;
   final DateTime recordedAt;
   final int durationSec;
@@ -14,7 +14,7 @@ class VideoMessage extends Equatable {
     required this.messageId,
     required this.sbcId,
     required this.visitorId,
-    required this.visitorName,
+    this.visitorName,
     required this.deviceFriendlyName,
     required this.recordedAt,
     required this.durationSec,

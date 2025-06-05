@@ -7,7 +7,6 @@ import '../../features/notifications/presentation/screens/notification_settings_
 import '../../features/auth/presentation/cubit/auth_cubit.dart';
 import '../constants/constants.dart';
 import 'widgets/services_pages_widget.dart';
-import '../common/widgets/logo_and_help_widget.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -21,9 +20,6 @@ class HomeScreen extends StatelessWidget {
             body: Center(child: CircularProgressIndicator()),
           );
         }
-
-        final user = state.user;
-
         return Scaffold(
           floatingActionButton: FloatingActionButton(
             onPressed: () {
@@ -38,10 +34,13 @@ class HomeScreen extends StatelessWidget {
             minimum: const EdgeInsets.only(top: 16),
             child: Column(
               children: [
-                const LogoAndHelpWidget(logout: true),
-                const SizedBox(height: 10),
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.20,
+                  width: MediaQuery.of(context).size.width * 0.8,
+                  child: Image.asset(AssetsConstants.logo),
+                ),
                 Text(
-                  'Welcome ${user.name ?? user.email}',
+                  'Welcome ${state.user.name ?? state.user.email}',
                   style: const TextStyle(
                     fontSize: 25,
                     fontWeight: FontWeight.bold,
@@ -106,7 +105,7 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 40),
               ],
             ),
           ),

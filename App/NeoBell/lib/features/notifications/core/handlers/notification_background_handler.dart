@@ -9,10 +9,16 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     await Firebase.initializeApp();
     if (kDebugMode) {
       Logger().d(
-          'Handling a background message id: ${message.messageId}\nTitle: ${message.notification?.title}\n Channel: ${message.notification?.android?.channelId}\nData: ${message.data}');
+        'Handling a background message id: ${message.messageId}\nTitle: ${message.notification?.title}\n Channel: ${message.notification?.android?.channelId}\nData: ${message.data}',
+      );
     }
+    // Here WE can handle the background message, e.g., show a local notification
+    // or process the data payload.
   } catch (e, stackTrace) {
-    Logger().e('Error in firebaseMessagingBackgroundHandler: $e',
-        error: e, stackTrace: stackTrace);
+    Logger().e(
+      'Error in firebaseMessagingBackgroundHandler: $e',
+      error: e,
+      stackTrace: stackTrace,
+    );
   }
 }

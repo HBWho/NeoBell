@@ -1,12 +1,14 @@
 import 'package:equatable/equatable.dart';
 
 class CreatePackageDelivery extends Equatable {
+  final String orderId;
   final String itemDescription;
   final String? trackingNumber;
   final String? carrier;
   final DateTime expectedDate;
 
   const CreatePackageDelivery({
+    required this.orderId,
     required this.itemDescription,
     this.trackingNumber,
     this.carrier,
@@ -15,6 +17,7 @@ class CreatePackageDelivery extends Equatable {
 
   Map<String, dynamic> toJson() {
     return {
+      'order_id': orderId,
       'item_description': itemDescription,
       if (trackingNumber != null && trackingNumber!.trim().isNotEmpty)
         'tracking_number': trackingNumber!.trim(),
@@ -27,6 +30,7 @@ class CreatePackageDelivery extends Equatable {
 
   @override
   List<Object?> get props => [
+    orderId,
     itemDescription,
     trackingNumber,
     carrier,

@@ -1,12 +1,29 @@
 enum NotificationChannel {
-  inventory('inventory', 'Inventory', 'Stock updates and inventory alerts'),
-  cartOperation(
-      'cart_ops', 'Cart Operations', 'Drone cart status and operation updates'),
-  shipping('shipping', 'Shipping', 'Dock and shipping related notifications'),
-  maintenance(
-      'maintenance', 'Maintenance', 'System and equipment maintenance alerts'),
-  userActions('user_actions', 'User Actions',
-      'User authentication and permission updates'),
+  packageDelivery(
+    'package_delivery',
+    'Package Delivery',
+    'Notifications related to package delivery status',
+  ),
+  videoMessages(
+    'video_messages',
+    'Video Messages',
+    'Notifications for new video messages',
+  ),
+  deviceManagement(
+    'device_management',
+    'Device Management',
+    'Notifications for device management updates',
+  ),
+  userActions(
+    'user_actions',
+    'User Actions',
+    'User authentication and permission updates',
+  ),
+  visitorRegistration(
+    'visitor_registration',
+    'Visitor Registration',
+    'Notifications for visitor registration and permissions',
+  ),
   system('system', 'System', 'Critical system notifications');
 
   final String id;

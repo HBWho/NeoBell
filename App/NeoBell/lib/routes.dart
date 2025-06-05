@@ -8,8 +8,6 @@ import 'package:neobell/core/screen/splash_screen.dart';
 import 'package:neobell/features/device_management/presentation/screens/devices_screen.dart'
     show DevicesScreen;
 import 'package:neobell/features/user_profile/presentation/screens/profile_screen.dart';
-import 'package:neobell/features/video_messages/presentation/blocs/video_message_bloc.dart';
-import 'package:neobell/features/video_messages/presentation/blocs/video_message_state.dart';
 import 'package:neobell/features/video_messages/presentation/screens/video_messages_screen.dart';
 import 'package:neobell/features/video_messages/presentation/screens/watch_video_screen.dart';
 
@@ -19,9 +17,10 @@ import 'core/screen/home_screen.dart';
 import 'features/activity_logs/presentation/screens/activity_logs_screen.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 import 'features/device_management/presentation/screens/device_details_screen.dart';
-import 'features/nfc/presentation/screens/nfc_screen.dart';
+import 'features/user_profile/presentation/screens/nfc_screen.dart';
 import 'features/package_deliveries/presentation/screens/package_deliveries_screen.dart';
 import 'features/package_deliveries/presentation/screens/package_delivery_details_screen.dart';
+import 'features/visitor_permissions/presentation/screens/visitor_permission_details_screen.dart';
 import 'features/visitor_permissions/presentation/screens/visitor_permissions_screen.dart';
 import 'init_dependencies_imports.dart';
 
@@ -127,6 +126,13 @@ class RouterMain {
               GoRoute(
                 path: '/:orderId',
                 name: 'package-delivery-details',
+                redirect: (context, state) {
+                  final orderId = state.pathParameters['orderId'];
+                  if (orderId != null && orderId.isNotEmpty) {
+                    return null;
+                  }
+                  return '/home/delivery-page';
+                },
                 builder: (context, state) {
                   final orderId = state.pathParameters['orderId']!;
                   return PackageDeliveryDetailsScreen(orderId: orderId);
@@ -140,6 +146,23 @@ class RouterMain {
             builder: (context, state) {
               return VisitorPermissionsScreen();
             },
+            routes: [
+              GoRoute(
+                path: '/:id',
+                name: 'visitor-permission-details',
+                redirect: (context, state) {
+                  final id = state.pathParameters['id'];
+                  if (id != null && id.isNotEmpty) {
+                    return null;
+                  }
+                  return '/home/visitor-permissions';
+                },
+                builder: (context, state) {
+                  final id = state.pathParameters['id']!;
+                  return VisitorPermissionDetailsScreen(faceTagId: id);
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: '/video-messages',
@@ -152,14 +175,8 @@ class RouterMain {
                 path: '/:id/watch-video',
                 name: 'watch-video',
                 redirect: (context, state) {
-                  // Verify if everything is ok to access the video screen
-                  final videoMessageBloc = context.read<VideoMessageBloc>();
-                  final currentState = videoMessageBloc.state;
                   final messageId = state.pathParameters['id'];
-                  // We check if the VideoMessageBloc is in a state that allows access to the video screen
-                  // and if the messageId matches the one in the state
-                  if (currentState is ViewUrlGenerated &&
-                      currentState.messageId == messageId) {
+                  if (messageId != null && messageId.isNotEmpty) {
                     return null;
                   }
                   return '/home/video-messages';

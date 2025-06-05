@@ -8,8 +8,8 @@ class VideoMessageModel extends VideoMessage {
     required super.deviceFriendlyName,
     required super.recordedAt,
     required super.durationSec,
-    required super.visitorName,
     required super.visitorId,
+    super.visitorName,
     super.isViewed,
   });
 

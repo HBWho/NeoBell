@@ -24,9 +24,7 @@ class _VideoMessagesScreenState extends State<VideoMessagesScreen> {
     final videoMessagesBloc = context.read<VideoMessageBloc>();
     final currentState = videoMessagesBloc.state;
 
-    if (currentState is VideoMessageInitial ||
-        currentState is VideoMessageError ||
-        currentState.messages.isEmpty) {
+    if (currentState is VideoMessageInitial) {
       videoMessagesBloc.add(const GetVideoMessagesEvent());
     }
   }
@@ -57,17 +55,6 @@ class _VideoMessagesScreenState extends State<VideoMessagesScreen> {
               context,
               message: 'Message deleted successfully',
               isSucess: true,
-            );
-          } else if (state is ViewUrlGenerated) {
-            // Handle video URL generation
-            showSnackBar(
-              context,
-              message: 'URL do vídeo gerada com sucesso',
-              isSucess: true,
-            );
-            context.pushNamed(
-              'watch-video',
-              pathParameters: {'id': state.messageId},
             );
           }
         },
@@ -113,15 +100,13 @@ class _VideoMessagesScreenState extends State<VideoMessagesScreen> {
   }
 
   void _playVideo(BuildContext context, VideoMessage message) {
-    context.read<VideoMessageBloc>().add(
-      GenerateViewUrlEvent(message.messageId),
-    );
     // Mark as viewed when playing
     if (!message.isViewed) {
       context.read<VideoMessageBloc>().add(
         MarkAsViewedEvent(message.messageId),
       );
     }
+    context.pushNamed('watch-video', pathParameters: {'id': message.messageId});
   }
 
   void _deleteMessage(BuildContext context, VideoMessage message) {

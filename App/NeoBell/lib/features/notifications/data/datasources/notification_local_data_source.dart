@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:logger/web.dart';
 
@@ -11,11 +14,17 @@ abstract class LocalNotificationsDataSource {
     NotificationMessage message, {
     AndroidNotificationDetails? androidNotificationDetails,
   });
+  Stream<Map<String, dynamic>> get onNotificationTap;
 }
 
 class LocalNotificationsDataSourceImpl implements LocalNotificationsDataSource {
   final FlutterLocalNotificationsPlugin _notifications;
   final Logger _logger = Logger();
+  final StreamController<Map<String, dynamic>> _notificationTapController =
+      StreamController<Map<String, dynamic>>.broadcast();
+  @override
+  Stream<Map<String, dynamic>> get onNotificationTap =>
+      _notificationTapController.stream;
 
   LocalNotificationsDataSourceImpl(this._notifications);
 
@@ -26,7 +35,23 @@ class LocalNotificationsDataSourceImpl implements LocalNotificationsDataSource {
         android: AndroidInitializationSettings('notification_small_icon'),
       );
 
-      await _notifications.initialize(initializationSettings);
+      await _notifications.initialize(
+        initializationSettings,
+        onDidReceiveNotificationResponse: (NotificationResponse response) {
+          if (response.payload != null && response.payload!.isNotEmpty) {
+            try {
+              _notificationTapController.add(jsonDecode(response.payload!));
+              _logger.d(
+                'LocalNotificationsDataSourceImpl: Notification payload: ${jsonDecode(response.payload!)}',
+              );
+            } catch (e) {
+              _logger.e(
+                'LocalNotificationsDataSourceImpl: Error decoding notification payload: $e',
+              );
+            }
+          }
+        },
+      );
       await _createNotificationChannels();
       _logger.i('Local notifications initialized');
     } catch (e) {
@@ -39,7 +64,8 @@ class LocalNotificationsDataSourceImpl implements LocalNotificationsDataSource {
     for (var channel in NotificationChannel.values) {
       await _notifications
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
+            AndroidFlutterLocalNotificationsPlugin
+          >()
           ?.createNotificationChannel(
             AndroidNotificationChannel(
               channel.id,
@@ -58,16 +84,17 @@ class LocalNotificationsDataSourceImpl implements LocalNotificationsDataSource {
   }) async {
     try {
       final platformChannelSpecifics = NotificationDetails(
-        android: androidNotificationDetails ??
+        android:
+            androidNotificationDetails ??
             AndroidNotificationDetails(
               message.channel.id,
               message.channel.name,
               channelDescription: message.channel.description,
-              importance: Importance.high,
-              priority: Priority.high,
+              importance: Importance.defaultImportance,
+              priority: Priority.defaultPriority,
               icon: 'notification_small_icon',
               // largeIcon: DrawableResourceAndroidBitmap('notification_large_icon'),
-              color: AppColors.red,
+              color: AppColors.primary,
             ),
       );
 
@@ -76,7 +103,7 @@ class LocalNotificationsDataSourceImpl implements LocalNotificationsDataSource {
         message.title,
         message.body,
         platformChannelSpecifics,
-        payload: message.payload?.toString(),
+        payload: message.payload != null ? jsonEncode(message.payload) : null,
       );
 
       _logger.d('Notification shown: ${message.title}');

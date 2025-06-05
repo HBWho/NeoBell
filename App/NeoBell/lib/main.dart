@@ -1,13 +1,11 @@
-import 'package:amplify_auth_cognito/amplify_auth_cognito.dart';
 import 'package:amplify_authenticator/amplify_authenticator.dart';
-import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:neobell/features/auth/core/auth_init.dart';
 import 'package:neobell/features/auth/presentation/screens/login_screen.dart';
 import 'package:neobell/features/video_messages/presentation/blocs/video_message_bloc.dart';
 
-import 'amplifyconfiguration.dart';
 import 'core/constants/constants.dart';
 import 'core/theme/theme.dart';
 import 'features/activity_logs/presentation/blocs/activity_log_bloc.dart';
@@ -23,7 +21,7 @@ import 'routes.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(); // Initialize Firebase
-  await _configureAmplify(); // Configure Amplify
+  await AuthInit.init(); // Configure Amplify
   await InitDependencies.init(); // Initialize Dependencies
   await serviceLocator<NotificationCubit>()
       .initialize(); // Initialize Notifications
@@ -59,16 +57,5 @@ class MyApp extends StatelessWidget {
         theme: AppTheme.theme,
       ),
     );
-  }
-}
-
-Future<void> _configureAmplify() async {
-  try {
-    final auth = AmplifyAuthCognito();
-    await Amplify.addPlugin(auth);
-
-    await Amplify.configure(amplifyconfig);
-  } on Exception catch (e) {
-    safePrint('An error occurred configuring Amplify: $e');
   }
 }

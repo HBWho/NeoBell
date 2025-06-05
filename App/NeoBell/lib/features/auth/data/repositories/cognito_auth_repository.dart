@@ -164,4 +164,22 @@ class CognitoAuthRepository implements AuthRepository {
       return left(Failure(e.message));
     }
   }
+
+  @override
+  Future<Either<Failure, Unit>> updatePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    try {
+      await aws.Amplify.Auth.updatePassword(
+        oldPassword: oldPassword,
+        newPassword: newPassword,
+      );
+      _logger.i('Password updated successfully');
+      return right(unit);
+    } on aws.AuthException catch (e) {
+      _logger.e('Update password failed: ${e.message}');
+      return left(Failure(e.message));
+    }
+  }
 }

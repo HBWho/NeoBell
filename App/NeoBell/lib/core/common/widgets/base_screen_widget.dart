@@ -21,7 +21,7 @@ class BaseScreenWidget extends StatelessWidget {
       appBar: AppBar(
         title: Text(title),
         actions: actions,
-        automaticallyImplyLeading: false, // Remove default back button
+        automaticallyImplyLeading: true,
       ),
       body: body,
       bottomNavigationBar:

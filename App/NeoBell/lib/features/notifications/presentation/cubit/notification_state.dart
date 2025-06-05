@@ -7,8 +7,6 @@ final class NotificationInitial extends NotificationState {}
 
 final class NotificationInitialized extends NotificationState {}
 
-final class NotificationTokenUpdated extends NotificationState {}
-
 class NotificationChannelStatesLoaded extends NotificationState {
   final Map<NotificationChannel, bool> channelStates;
 

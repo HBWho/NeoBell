@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../domain/entities/package_delivery.dart';
 import '../../domain/entities/package_delivery_filter.dart';
 import '../../domain/use_cases/create_package_delivery.dart';
 import '../../domain/use_cases/delete_package_delivery.dart';
@@ -47,13 +48,19 @@ class PackageDeliveryBloc
     Emitter<PackageDeliveryState> emit,
   ) async {
     if (event.refresh || state is! PackageDeliveryLoaded) {
-      emit(const PackageDeliveryLoading());
+      emit(
+        PackageDeliveryLoading(
+          deliveries: state.deliveries,
+          currentDelivery: state.currentDelivery,
+        ),
+      );
     } else if (event.lastEvaluatedKey != null) {
       final currentState = state as PackageDeliveryLoaded;
       emit(
         PackageDeliveryLoadingMore(
-          currentDeliveries: currentState.deliveries,
+          deliveries: currentState.deliveries,
           currentFilter: currentState.filter,
+          currentDelivery: currentState.currentDelivery,
         ),
       );
     }
@@ -73,8 +80,9 @@ class PackageDeliveryBloc
           emit(
             PackageDeliveryError(
               message: failure.message,
-              previousDeliveries: loadingState.currentDeliveries,
+              deliveries: loadingState.deliveries,
               previousFilter: loadingState.currentFilter,
+              currentDelivery: loadingState.currentDelivery,
             ),
           );
         } else {
@@ -84,10 +92,7 @@ class PackageDeliveryBloc
       (deliveries) {
         if (state is PackageDeliveryLoadingMore) {
           final loadingState = state as PackageDeliveryLoadingMore;
-          final allDeliveries = [
-            ...loadingState.currentDeliveries,
-            ...deliveries,
-          ];
+          final allDeliveries = [...loadingState.deliveries, ...deliveries];
           emit(
             PackageDeliveryLoaded(
               deliveries: allDeliveries,
@@ -95,6 +100,7 @@ class PackageDeliveryBloc
               hasReachedMax: deliveries.length < (event.limit ?? _defaultLimit),
               lastEvaluatedKey:
                   deliveries.isNotEmpty ? deliveries.last.orderId : null,
+              currentDelivery: loadingState.currentDelivery,
             ),
           );
         } else {
@@ -105,6 +111,7 @@ class PackageDeliveryBloc
               hasReachedMax: deliveries.length < (event.limit ?? _defaultLimit),
               lastEvaluatedKey:
                   deliveries.isNotEmpty ? deliveries.last.orderId : null,
+              currentDelivery: state.currentDelivery,
             ),
           );
         }
@@ -116,13 +123,55 @@ class PackageDeliveryBloc
     LoadPackageDeliveryDetails event,
     Emitter<PackageDeliveryState> emit,
   ) async {
-    emit(const PackageDeliveryDetailsLoading());
+    // Check if delivery is already cached in the state
+    final cachedDelivery =
+        state.deliveries
+            .where((delivery) => delivery.orderId == event.orderId)
+            .firstOrNull;
+
+    if (cachedDelivery != null) {
+      emit(
+        PackageDeliveryDetailsLoaded(
+          delivery: cachedDelivery,
+          deliveries: state.deliveries,
+        ),
+      );
+      return;
+    }
+
+    emit(
+      PackageDeliveryDetailsLoading(
+        deliveries: state.deliveries,
+        currentDelivery: state.currentDelivery,
+      ),
+    );
 
     final result = await _getPackageDeliveryDetails(event.orderId);
 
     result.fold(
-      (failure) => emit(PackageDeliveryError(message: failure.message)),
-      (delivery) => emit(PackageDeliveryDetailsLoaded(delivery)),
+      (failure) => emit(
+        PackageDeliveryError(
+          message: failure.message,
+          deliveries: state.deliveries,
+          currentDelivery: state.currentDelivery,
+        ),
+      ),
+      (delivery) {
+        // Update the cached deliveries with the detailed delivery
+        List<PackageDelivery> updatedDeliveries =
+            state.deliveries
+                .map((d) => d.orderId == delivery.orderId ? delivery : d)
+                .toList();
+        if (!updatedDeliveries.any((d) => d.orderId == delivery.orderId)) {
+          updatedDeliveries.add(delivery);
+        }
+        emit(
+          PackageDeliveryDetailsLoaded(
+            delivery: delivery,
+            deliveries: updatedDeliveries,
+          ),
+        );
+      },
     );
   }
 
@@ -131,20 +180,30 @@ class PackageDeliveryBloc
     Emitter<PackageDeliveryState> emit,
   ) async {
     emit(
-      const PackageDeliveryOperationLoading(
+      PackageDeliveryOperationLoading(
         operation: 'Creating package delivery',
+        deliveries: state.deliveries,
+        currentDelivery: state.currentDelivery,
       ),
     );
 
     final result = await _createPackageDelivery(event.delivery);
 
     result.fold(
-      (failure) => emit(PackageDeliveryError(message: failure.message)),
+      (failure) => emit(
+        PackageDeliveryError(
+          message: failure.message,
+          deliveries: state.deliveries,
+          currentDelivery: state.currentDelivery,
+        ),
+      ),
       (delivery) {
         emit(
           PackageDeliveryOperationSuccess(
             message: 'Package delivery created successfully',
             delivery: delivery,
+            deliveries: state.deliveries,
+            currentDelivery: state.currentDelivery,
           ),
         );
         add(const RefreshPackageDeliveries());
@@ -157,8 +216,10 @@ class PackageDeliveryBloc
     Emitter<PackageDeliveryState> emit,
   ) async {
     emit(
-      const PackageDeliveryOperationLoading(
+      PackageDeliveryOperationLoading(
         operation: 'Updating package delivery',
+        deliveries: state.deliveries,
+        currentDelivery: state.currentDelivery,
       ),
     );
 
@@ -170,12 +231,31 @@ class PackageDeliveryBloc
     );
 
     result.fold(
-      (failure) => emit(PackageDeliveryError(message: failure.message)),
+      (failure) => emit(
+        PackageDeliveryError(
+          message: failure.message,
+          deliveries: state.deliveries,
+          currentDelivery: state.currentDelivery,
+        ),
+      ),
       (delivery) {
+        // Update the cached deliveries with the updated delivery
+        final updatedDeliveries =
+            state.deliveries
+                .map((d) => d.orderId == delivery.orderId ? delivery : d)
+                .toList();
+
+        final newCurrentDelivery =
+            state.currentDelivery?.orderId == delivery.orderId
+                ? delivery
+                : state.currentDelivery;
+
         emit(
           PackageDeliveryOperationSuccess(
             message: 'Package delivery updated successfully',
             delivery: delivery,
+            deliveries: updatedDeliveries,
+            currentDelivery: newCurrentDelivery,
           ),
         );
         add(const RefreshPackageDeliveries());
@@ -188,19 +268,38 @@ class PackageDeliveryBloc
     Emitter<PackageDeliveryState> emit,
   ) async {
     emit(
-      const PackageDeliveryOperationLoading(
+      PackageDeliveryOperationLoading(
         operation: 'Deleting package delivery',
+        deliveries: state.deliveries,
+        currentDelivery: state.currentDelivery,
       ),
     );
 
     final result = await _deletePackageDelivery(event.orderId);
 
     result.fold(
-      (failure) => emit(PackageDeliveryError(message: failure.message)),
+      (failure) => emit(
+        PackageDeliveryError(
+          message: failure.message,
+          deliveries: state.deliveries,
+          currentDelivery: state.currentDelivery,
+        ),
+      ),
       (_) {
+        // Remove the deleted delivery from the cache
+        final updatedDeliveries =
+            state.deliveries.where((d) => d.orderId != event.orderId).toList();
+
+        final newCurrentDelivery =
+            state.currentDelivery?.orderId == event.orderId
+                ? null
+                : state.currentDelivery;
+
         emit(
-          const PackageDeliveryOperationSuccess(
+          PackageDeliveryOperationSuccess(
             message: 'Package delivery deleted successfully',
+            deliveries: updatedDeliveries,
+            currentDelivery: newCurrentDelivery,
           ),
         );
         add(const RefreshPackageDeliveries());

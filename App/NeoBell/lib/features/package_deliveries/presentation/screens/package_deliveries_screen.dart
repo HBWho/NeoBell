@@ -29,7 +29,14 @@ class _PackageDeliveriesScreenState extends State<PackageDeliveriesScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    context.read<PackageDeliveryBloc>().add(const LoadPackageDeliveries());
+    _initializePackageDeliveries();
+  }
+
+  void _initializePackageDeliveries() {
+    final currentState = context.read<PackageDeliveryBloc>().state;
+    if (currentState is PackageDeliveryInitial) {
+      context.read<PackageDeliveryBloc>().add(const LoadPackageDeliveries());
+    }
   }
 
   @override
@@ -82,8 +89,7 @@ class _PackageDeliveriesScreenState extends State<PackageDeliveriesScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (state is PackageDeliveryError &&
-              state.previousDeliveries == null) {
+          if (state is PackageDeliveryError && state.deliveries.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -113,11 +119,9 @@ class _PackageDeliveriesScreenState extends State<PackageDeliveriesScreen> {
               ),
             );
           }
-
-          final deliveries = _getDeliveries(state);
           final hasFilter = _currentFilter?.hasActiveFilters ?? false;
 
-          if (deliveries.isEmpty) {
+          if (state.deliveries.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -164,10 +168,10 @@ class _PackageDeliveriesScreenState extends State<PackageDeliveriesScreen> {
                   child: ListView.builder(
                     controller: _scrollController,
                     itemCount:
-                        deliveries.length +
+                        state.deliveries.length +
                         (state is PackageDeliveryLoadingMore ? 1 : 0),
                     itemBuilder: (context, index) {
-                      if (index >= deliveries.length) {
+                      if (index >= state.deliveries.length) {
                         return const Center(
                           child: Padding(
                             padding: EdgeInsets.all(16.0),
@@ -176,7 +180,7 @@ class _PackageDeliveriesScreenState extends State<PackageDeliveriesScreen> {
                         );
                       }
 
-                      final delivery = deliveries[index];
+                      final delivery = state.deliveries[index];
                       return PackageDeliveryItem(
                         delivery: delivery,
                         onTap:
@@ -201,18 +205,6 @@ class _PackageDeliveriesScreenState extends State<PackageDeliveriesScreen> {
         child: const Icon(Icons.add),
       ),
     );
-  }
-
-  List<PackageDelivery> _getDeliveries(PackageDeliveryState state) {
-    if (state is PackageDeliveryLoaded) {
-      return state.deliveries;
-    } else if (state is PackageDeliveryLoadingMore) {
-      return state.currentDeliveries;
-    } else if (state is PackageDeliveryError &&
-        state.previousDeliveries != null) {
-      return state.previousDeliveries!;
-    }
-    return [];
   }
 
   Widget _buildFilterChips() {

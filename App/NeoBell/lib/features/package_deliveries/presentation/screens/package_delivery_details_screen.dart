@@ -321,8 +321,7 @@ class _PackageDeliveryDetailsScreenState
     switch (status) {
       case PackageDeliveryStatus.pending:
         return Icons.schedule;
-      case PackageDeliveryStatus.inBox1:
-      case PackageDeliveryStatus.inBox2:
+      case PackageDeliveryStatus.delivered:
         return Icons.inbox;
       case PackageDeliveryStatus.retrievedByUser:
         return Icons.check_circle;
@@ -335,8 +334,7 @@ class _PackageDeliveryDetailsScreenState
     switch (status) {
       case PackageDeliveryStatus.pending:
         return Colors.orange;
-      case PackageDeliveryStatus.inBox1:
-      case PackageDeliveryStatus.inBox2:
+      case PackageDeliveryStatus.delivered:
         return Colors.blue;
       case PackageDeliveryStatus.retrievedByUser:
         return Colors.green;
@@ -349,10 +347,8 @@ class _PackageDeliveryDetailsScreenState
     switch (status) {
       case PackageDeliveryStatus.pending:
         return 'Awaiting delivery';
-      case PackageDeliveryStatus.inBox1:
-        return 'Package received in box 1';
-      case PackageDeliveryStatus.inBox2:
-        return 'Package received in box 2';
+      case PackageDeliveryStatus.delivered:
+        return 'Package delivered';
       case PackageDeliveryStatus.retrievedByUser:
         return 'Package has been collected';
       case PackageDeliveryStatus.cancelled:

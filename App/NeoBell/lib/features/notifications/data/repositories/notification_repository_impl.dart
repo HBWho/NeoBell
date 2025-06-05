@@ -8,6 +8,10 @@ class NotificationRepositoryImpl implements NotificationRepository {
   NotificationRepositoryImpl(this._dataSource);
 
   @override
+  Stream<Map<String, dynamic>> get onNotificationTap =>
+      _dataSource.onNotificationTap;
+
+  @override
   Future<void> initialize() => _dataSource.initialize();
 
   @override

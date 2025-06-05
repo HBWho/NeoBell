@@ -37,6 +37,7 @@ import 'features/auth/domain/repositories/auth_repository.dart';
 import 'features/auth/domain/usecases/check_auth_status.dart';
 import 'features/auth/domain/usecases/sign_in.dart';
 import 'features/auth/domain/usecases/sign_out.dart';
+import 'features/auth/domain/usecases/update_password.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
 
 import 'features/device_management/data/datasources/device_remote_data_source.dart';
@@ -50,6 +51,7 @@ import 'features/notifications/data/repositories/notification_repository_impl.da
 import 'features/notifications/domain/repositories/notification_repository.dart';
 import 'features/notifications/domain/usecases/get_firebase_tolen.dart';
 import 'features/notifications/domain/usecases/initialize_notifications.dart';
+import 'features/notifications/domain/usecases/listen_to_notification_taps.dart';
 import 'features/notifications/domain/usecases/show_notification.dart';
 import 'features/notifications/presentation/cubit/notification_cubit.dart';
 

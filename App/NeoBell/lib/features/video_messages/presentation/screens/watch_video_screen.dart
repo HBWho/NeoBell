@@ -6,6 +6,7 @@ import '../../../../core/common/widgets/base_screen_widget.dart';
 import '../../../../core/utils/show_snackbar.dart';
 import '../../domain/entities/video_message.dart';
 import '../blocs/video_message_bloc.dart';
+import '../blocs/video_message_event.dart';
 import '../blocs/video_message_state.dart';
 
 class WatchVideoScreen extends StatefulWidget {
@@ -26,7 +27,9 @@ class _WatchVideoScreenState extends State<WatchVideoScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeVideo();
+    context.read<VideoMessageBloc>().add(
+      GenerateViewUrlEvent(widget.messageId),
+    );
   }
 
   void _initializeVideo() {
@@ -111,15 +114,8 @@ class _WatchVideoScreenState extends State<WatchVideoScreen> {
             Future.delayed(const Duration(seconds: 2), () {
               if (context.mounted) context.pop();
             });
-          } else if (state is VideoMessageInitial) {
-            showSnackBar(
-              context,
-              message: 'Dados foram atualizados',
-              isSucess: true,
-            );
-            Future.delayed(const Duration(seconds: 1), () {
-              if (context.mounted) context.pop();
-            });
+          } else if (state is ViewUrlGenerated) {
+            _initializeVideo();
           }
         },
         child: _buildBody(),
@@ -252,7 +248,7 @@ class _WatchVideoScreenState extends State<WatchVideoScreen> {
               const Icon(Icons.person, size: 20),
               const SizedBox(width: 8),
               Text(
-                message.visitorName,
+                message.visitorName ?? 'Visitor not registered',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -336,7 +332,10 @@ class _WatchVideoScreenState extends State<WatchVideoScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildInfoRow('Visitor:', message.visitorName),
+                _buildInfoRow(
+                  'Visitor:',
+                  message.visitorName ?? 'Visitor not registered',
+                ),
                 _buildInfoRow('Message ID:', message.messageId),
                 _buildInfoRow('Device:', message.deviceFriendlyName),
                 _buildInfoRow(

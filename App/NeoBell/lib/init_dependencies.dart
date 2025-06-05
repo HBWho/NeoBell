@@ -64,12 +64,17 @@ class InitDependencies {
         () =>
             CheckAuthStatus(serviceLocator<AuthRepository>(instanceName: type)),
       )
+      ..registerFactory(
+        () =>
+            UpdatePassword(serviceLocator<AuthRepository>(instanceName: type)),
+      )
       // Cubit
       ..registerLazySingleton(
         () => AuthCubit(
           signIn: serviceLocator<SignIn>(),
           signOut: serviceLocator<SignOut>(),
           checkAuthStatus: serviceLocator<CheckAuthStatus>(),
+          updatePassword: serviceLocator<UpdatePassword>(),
           tokenManager: serviceLocator<TokenManager>(),
           userProfileCubit: serviceLocator<UserProfileCubit>(),
           notificationCubit: serviceLocator<NotificationCubit>(),
@@ -114,12 +119,17 @@ class InitDependencies {
       ..registerFactory(
         () => GetFirebaseToken(serviceLocator<NotificationRepository>()),
       )
+      ..registerFactory(
+        () =>
+            ListenToNotificationTaps(serviceLocator<NotificationRepository>()),
+      )
       // Cubit
       ..registerLazySingleton(
         () => NotificationCubit(
           initializeNotifications: serviceLocator<InitializeNotifications>(),
           showNotification: serviceLocator<ShowNotification>(),
           getFirebaseToken: serviceLocator<GetFirebaseToken>(),
+          listenToNotificationTaps: serviceLocator<ListenToNotificationTaps>(),
         ),
       );
   }

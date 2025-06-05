@@ -42,52 +42,75 @@ class VideoMessageRemoteDataSourceImpl implements VideoMessageRemoteDataSource {
     int? limit,
     String? lastEvaluatedKey,
   }) async {
-    Map<String, String> queryParams = {};
+    try {
+      Map<String, String> queryParams = {};
 
-    if (sbcId != null) queryParams['sbc_id'] = sbcId;
-    if (startDate != null) {
-      queryParams['start_date'] = startDate.toIso8601String();
+      if (sbcId != null) queryParams['sbc_id'] = sbcId;
+      if (startDate != null) {
+        queryParams['start_date'] = startDate.toIso8601String();
+      }
+      if (endDate != null) queryParams['end_date'] = endDate.toIso8601String();
+      if (isViewed != null) queryParams['is_viewed'] = isViewed.toString();
+      if (limit != null) queryParams['limit'] = limit.toString();
+      if (lastEvaluatedKey != null) {
+        queryParams['last_evaluated_key'] = lastEvaluatedKey;
+      }
+
+      final response = await apiService.getData(
+        endPoint: ApiEndpoints.getVideoMessages,
+        queryParams: queryParams,
+      );
+
+      final List<dynamic> jsonList = response['messages'];
+      return jsonList.map((json) => VideoMessageModel.fromJson(json)).toList();
+    } on ServerException {
+      rethrow;
+    } catch (e) {
+      throw ServerException('Failed to fetch video messages: $e');
     }
-    if (endDate != null) queryParams['end_date'] = endDate.toIso8601String();
-    if (isViewed != null) queryParams['is_viewed'] = isViewed.toString();
-    if (limit != null) queryParams['limit'] = limit.toString();
-    if (lastEvaluatedKey != null) {
-      queryParams['last_evaluated_key'] = lastEvaluatedKey;
-    }
-
-    final response = await apiService.getData(
-      endPoint: ApiEndpoints.getVideoMessages,
-      queryParams: queryParams,
-    );
-
-    final List<dynamic> jsonList = response['messages'];
-    return jsonList.map((json) => VideoMessageModel.fromJson(json)).toList();
   }
 
   @override
   Future<String> generateViewUrl(String messageId) async {
-    final response = await apiService.postData(
-      endPoint: ApiEndpoints.generateViewUrl,
-      pathParams: {'message_id': messageId},
-    );
-
-    return response['view_url'];
+    try {
+      final response = await apiService.postData(
+        endPoint: ApiEndpoints.generateViewUrl,
+        pathParams: {'message_id': messageId},
+      );
+      return response['view_url'];
+    } on ServerException {
+      rethrow;
+    } catch (e) {
+      throw ServerException('Failed to generate view URL: $e');
+    }
   }
 
   @override
   Future<void> markAsViewed(String messageId) async {
-    await apiService.updateData(
-      endPoint: ApiEndpoints.markAsViewed,
-      pathParams: {'message_id': messageId},
-      body: {'is_viewed': true},
-    );
+    try {
+      await apiService.updateData(
+        endPoint: ApiEndpoints.markAsViewed,
+        pathParams: {'message_id': messageId},
+        body: {'is_viewed': true},
+      );
+    } on ServerException {
+      rethrow;
+    } catch (e) {
+      throw ServerException('Failed to mark message as viewed: $e');
+    }
   }
 
   @override
   Future<void> deleteMessage(String messageId) async {
-    await apiService.deleteData(
-      endPoint: ApiEndpoints.deleteMessage,
-      pathParams: {'message_id': messageId},
-    );
+    try {
+      await apiService.deleteData(
+        endPoint: ApiEndpoints.deleteMessage,
+        pathParams: {'message_id': messageId},
+      );
+    } on ServerException {
+      rethrow;
+    } catch (e) {
+      throw ServerException('Failed to delete message: $e');
+    }
   }
 }

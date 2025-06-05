@@ -50,8 +50,9 @@ class PackageDeliveryRemoteDataSourceImpl
       }
 
       if (limit != null) queryParams['limit'] = limit.toString();
-      if (lastEvaluatedKey != null)
+      if (lastEvaluatedKey != null) {
         queryParams['last_evaluated_key'] = lastEvaluatedKey;
+      }
 
       final response = await _apiService.getData(
         endPoint: ApiEndpoints.getDeliveries,

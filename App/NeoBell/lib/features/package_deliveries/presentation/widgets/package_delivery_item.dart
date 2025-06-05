@@ -47,6 +47,17 @@ class PackageDeliveryItem extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.receipt, size: 16, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Order ID: ${delivery.orderId}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
               if (delivery.trackingNumber != null) ...[
                 Row(
                   children: [
@@ -149,15 +160,13 @@ class PackageDeliveryItem extends StatelessWidget {
     Color chipColor;
     Color textColor;
     IconData icon;
-
     switch (delivery.status) {
       case PackageDeliveryStatus.pending:
         chipColor = Colors.orange.shade100;
         textColor = Colors.orange.shade800;
         icon = Icons.schedule;
         break;
-      case PackageDeliveryStatus.inBox1:
-      case PackageDeliveryStatus.inBox2:
+      case PackageDeliveryStatus.delivered:
         chipColor = Colors.blue.shade100;
         textColor = Colors.blue.shade800;
         icon = Icons.inbox;
