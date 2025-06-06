@@ -23,7 +23,7 @@ class BaseScreenWidget extends StatelessWidget {
         actions: actions,
         automaticallyImplyLeading: true,
       ),
-      body: body,
+      body: SafeArea(child: body),
       bottomNavigationBar:
           showBackButton
               ? Container(

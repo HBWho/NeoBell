@@ -30,13 +30,24 @@ class HomeScreen extends StatelessWidget {
             },
             child: const Icon(Icons.notifications),
           ),
+          appBar: AppBar(
+            leading: IconButton(
+              alignment: Alignment.topLeft,
+              onPressed: () => context.read<AuthCubit>().signOut(),
+              icon: Icon(Icons.logout, size: 30),
+            ),
+            title: const Text('Home'),
+            centerTitle: true,
+          ),
           body: SafeArea(
             minimum: const EdgeInsets.only(top: 16),
             child: Column(
               children: [
-                SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.20,
-                  width: MediaQuery.of(context).size.width * 0.8,
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.15,
+                    maxWidth: MediaQuery.of(context).size.width * 0.95,
+                  ),
                   child: Image.asset(AssetsConstants.logo),
                 ),
                 Text(
@@ -46,7 +57,7 @@ class HomeScreen extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 10),
                 Text(
                   'NeoBell System',
                   style: TextStyle(
@@ -55,7 +66,7 @@ class HomeScreen extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 10),
                 Expanded(
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 20),

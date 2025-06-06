@@ -330,32 +330,22 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> {
   }
 
   Widget _buildUserItem(DeviceUser user, Device device) {
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: user.isOwner ? Colors.blue : Colors.orange,
-        child: Text(
-          user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
+    return Column(
+      children: [
+        ListTile(
+          leading: CircleAvatar(
+            backgroundColor: user.isOwner ? Colors.blue : Colors.orange,
+            child: Text(
+              user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
-        ),
-      ),
-      title: Text(user.name),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(user.email),
-          Text(
-            'Access granted at: ${_formatDate(user.accessGrantedAt)}',
-            style: const TextStyle(fontSize: 12),
-          ),
-        ],
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
+          title: Text(user.name),
+          subtitle: Text(user.email),
+          trailing: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: user.isOwner ? Colors.blue : Colors.orange,
@@ -370,16 +360,25 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> {
               ),
             ),
           ),
-          if (device.isOwner && !user.isOwner) ...[
-            const SizedBox(width: 8),
-            IconButton(
-              onPressed: () => _showRemoveUserConfirmation(user, device),
-              icon: const Icon(Icons.delete, color: Colors.red),
-              iconSize: 20,
+        ),
+        Row(
+          children: [
+            Text(
+              'Access granted at: ${_formatDate(user.accessGrantedAt)}',
+              style: const TextStyle(fontSize: 12),
             ),
+
+            if (device.isOwner && !user.isOwner) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () => _showRemoveUserConfirmation(user, device),
+                icon: const Icon(Icons.delete, color: Colors.red),
+                iconSize: 20,
+              ),
+            ],
           ],
-        ],
-      ),
+        ),
+      ],
     );
   }
 

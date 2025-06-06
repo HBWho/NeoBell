@@ -199,14 +199,17 @@ class ApiServiceImpl implements ApiService {
 
   Future<void> _statusHandler(http.Response response) async {
     if (kDebugMode) {
-      _logger.d('Server Response: ${response.body}');
+      _logger.d(
+        'Server Response, Status code: ${response.statusCode}, Body: ${response.body}',
+      );
     }
-    final errorData = jsonDecode(response.body);
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      _logger.i('Request successful');
+    final List<int> validStatusCodes = [200, 201, 204, 202];
+    if (validStatusCodes.contains(response.statusCode)) {
+      _logger.i('Request successful with status code: ${response.statusCode}');
       return;
     }
 
+    final errorData = jsonDecode(response.body);
     final errorMessage = errorData['message'] ?? 'Unknown error occurred';
     final errorDetails = errorData['error'] ?? '';
     _logger.e(

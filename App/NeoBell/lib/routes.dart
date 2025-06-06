@@ -70,7 +70,7 @@ class RouterMain {
         builder: (context, state) {
           return Center(
             child: ElevatedButton(
-              onPressed: () => context.goNamed('/home'),
+              onPressed: () => context.goNamed('home'),
               child: Text('If you didn\'t get redirected, please click here'),
             ),
           );

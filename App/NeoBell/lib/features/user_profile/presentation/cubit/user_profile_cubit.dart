@@ -46,9 +46,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
     final result = await _getCurrentProfile(const NoParams());
     result.fold(
       (failure) => emit(UserProfileError(failure.message)),
-      (profile) => emit(
-        UserProfileLoaded(profile, message: 'Profile loaded successfully'),
-      ),
+      (profile) => emit(UserProfileLoaded(profile)),
     );
   }
 

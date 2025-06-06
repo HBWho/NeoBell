@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
 import 'package:nfc_manager/nfc_manager.dart';
+import 'package:nfc_manager/nfc_manager_android.dart';
 
 class NfcScanDialog extends StatefulWidget {
   const NfcScanDialog({super.key});
@@ -42,35 +43,24 @@ class _NfcScanDialogState extends State<NfcScanDialog> {
         });
         return;
       }
-
       await NfcManager.instance.startSession(
         pollingOptions: {NfcPollingOption.iso14443, NfcPollingOption.iso15693},
         onDiscovered: (NfcTag tag) async {
-          _logger.i('Tag NFC detectada: $tag');
+          _logger.i('Tag NFC detectada: ${tag.toString()}');
           try {
-            final data = tag.data;
-            List<int>? tagId;
-
-            if (data is Map) {
-              final nfcaData = data['nfca'];
-              if (nfcaData is Map && nfcaData.containsKey('identifier')) {
-                tagId = List<int>.from(nfcaData['identifier']);
-              }
-            }
-
-            if (tagId == null) {
+            final nfcTagAndroid = NfcTagAndroid.from(tag);
+            if (nfcTagAndroid == null) {
               setState(() => _error = 'The NFC tag is not supported');
               return;
             }
-
-            final hexId = tagId
+            final hexId = nfcTagAndroid.id
                 .map((e) => e.toRadixString(16).padLeft(2, '0'))
                 .join(':');
             if (mounted) {
               Navigator.of(context).pop(hexId);
             }
           } catch (e) {
-            setState(() => _error = 'Erro ao ler tag: $e');
+            setState(() => _error = 'Error trying to read tag: $e');
           }
         },
       );
