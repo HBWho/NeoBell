@@ -250,9 +250,9 @@ def testar_envio_mensagem_video():
     logger.info("\n--- INICIANDO TESTE: Envio de Mensagem de Vídeo ---")
     if not subscribe_to_topic(TOPIC_MSG_UPLOAD_URL_RESP): return
 
-    video_file = create_dummy_file("dog_video.mp4", size_kb=200)
-    duration_sec = 30
-    visitor_face_tag_id = "e431d493-abdb-4916-8f29-21fae7b8364d" # Tag ja registrada
+    video_file = create_dummy_file("message_by_Dog.mp4", size_kb=200)
+    duration_sec = 10
+    visitor_face_tag_id = "f80490f5-a231-4ced-9e07-29083b872c08" # Tag ja registrada
 
 
     payload_msg_req = {
@@ -281,7 +281,7 @@ def testar_requisicao_permissao():
 
     # Use um face_tag_id que você espera que exista ou não, para testar ambos os casos
     # face_tag_id_para_teste = "c9b8a712-9b2f-4c3d-9d5e-1f8a7b6c5d4e" # Exemplo
-    face_tag_id_para_teste = "e431d493-abdb-4916-8f29-21fae7b8364d"
+    face_tag_id_para_teste = "f80490f5-a231-4ced-9e07-29083b872c08"
     
     payload_perm_req = {
         "sbc_id": SBC_ID,
@@ -323,7 +323,7 @@ def testar_envio_log():
     log_payload = {
         "sbc_id": SBC_ID,
         "log_timestamp": datetime.now(timezone.utc).isoformat(),
-        "event_type": "DEVICE_BOOT",
+        "event_type": "NEW_VIDEO",
         "event_details": {
             "firmware_version": "1.2.3",
             "status": "success"
@@ -355,7 +355,7 @@ if __name__ == '__main__':
         exit(1) # Sai se não conseguir conectar
 
     try:
-        # testar_cadastro_visitante("Gabriel", "Allowed", "dog.jpg") # Funcionou
+        # testar_cadastro_visitante("Dog", "Allowed", "dog.jpg") # Funcionou
         # time.sleep(2) # Pequena pausa entre testes
 
         # testar_envio_mensagem_video() # Funcionou
@@ -364,7 +364,7 @@ if __name__ == '__main__':
         # testar_requisicao_permissao() # Funcionou
         # time.sleep(2)
 
-        # testar_requisicao_pacote() # TODO
+        testar_requisicao_pacote() # TODO
         # time.sleep(2)
         
         # testar_envio_log() # Funcionou

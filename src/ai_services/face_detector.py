@@ -174,7 +174,7 @@ if __name__ == '__main__':
                     else: # Assume it's already 0-255 if max > 1 (less likely from DeepFace extract_faces)
                         face_to_show = face_to_show.astype(np.uint8)
                     
-                    cv2.imshow(f"Detected Face Crop {i+1}", face_to_show)
+                    # cv2.imshow(f"Detected Face Crop {i+1}", face_to_show)
 
                     # Draw bounding box on original frame
                     x, y, w, h = region['x'], region['y'], region['w'], region['h']
@@ -182,7 +182,7 @@ if __name__ == '__main__':
                     cv2.putText(frame, f"Conf: {confidence:.2f}", (x, y-5 if y-5 > 5 else y+h+15), 
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1)
 
-                cv2.imshow("Original Frame with Detections", frame)
+                # cv2.imshow("Original Frame with Detections", frame)
                 print("\nPress any key on an image window to continue...")
                 cv2.waitKey(0)
                 cv2.destroyAllWindows()

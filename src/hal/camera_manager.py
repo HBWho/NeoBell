@@ -42,7 +42,7 @@ class CameraManager:
             print("ERROR CAM: Failed to capture frame.")
             return None
 
-    def start_video_recording(self, output_dir, filename_prefix="visitor_message", duration_seconds=20, 
+    def start_video_recording(self, output_dir, filename_prefix="visitor_message", duration_seconds=10, 
                               silence_timeout_seconds=3, stt_service_for_silence=None):
         self._speak(f"Recording will start in 3 seconds and last for up to {duration_seconds} seconds.")
         for i in range(3, 0, -1):

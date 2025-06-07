@@ -32,7 +32,7 @@ except ImportError as e_ai:
     FaceProcessor = None # Define as None if import fails
 
 try:
-    from hardware_interfaces.camera_manager import CameraManager
+    from hal.camera_manager import CameraManager
 except ImportError as e_hw:
     print(f"WARNING VFM: Could not import CameraManager: {e_hw}. Video/Image capture will fail.")
     _HARDWARE_IMPORT_SUCCESS = False
@@ -142,7 +142,9 @@ class VisitorFlowManager:
 
     def _offer_and_perform_registration(self):
         self.tts_service.speak("Would you like to register so I can recognize you next time? This involves taking a few pictures. Please say yes or no.")
-        response = self.stt_service.transcribe_audio(duration_seconds=4, device_id=self.config.STT_MIC_ID)
+        time.sleep(3)
+        # response = self.stt_service.transcribe_audio(duration_seconds=4, device_id=self.config.STT_MIC_ID)
+        response = "Yes"
 
         if response and "yes" in response.lower(): # Simple "yes" check
             self.tts_service.speak("Great! Let's get you registered.")
@@ -155,7 +157,10 @@ class VisitorFlowManager:
 
             if embeddings and len(embeddings) >= self.config.REGISTRATION_NUM_PHOTOS // 2 + 1 : # Need at least half + 1 good captures
                 self.tts_service.speak("Thank you for the pictures. Now, could you please tell me your first name?")
-                visitor_name_spoken = self.stt_service.transcribe_audio(duration_seconds=6, device_id=self.config.STT_MIC_ID)
+                time.sleep(4)
+                # visitor_name_spoken = self.stt_service.transcribe_audio(duration_seconds=6, device_id=self.config.STT_MIC_ID)
+                visitor_name_spoken = "Gabriel"
+
                 
                 name_to_register = "Visitor" # Default
                 if visitor_name_spoken and visitor_name_spoken.strip() and "ERROR" not in visitor_name_spoken:

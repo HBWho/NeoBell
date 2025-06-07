@@ -30,3 +30,10 @@ def deactivate_pin(chip_num, line_num):
         },
     ) as request:
         request.set_value(LINE, Value.INACTIVE)
+
+deactivate_pin(4, 5)
+deactivate_pin(4, 9)
+deactivate_pin(4, 2)
+deactivate_pin(1, 8)
+deactivate_pin(1, 13)
+deactivate_pin(1, 30)

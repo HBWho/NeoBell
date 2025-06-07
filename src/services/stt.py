@@ -1,5 +1,5 @@
-import pyaudio
 from vosk import Model, KaldiRecognizer
+import pyaudio
 import json
 import os
 import time
@@ -54,6 +54,7 @@ class STTService:
             last_speech_time = start_time
             
             while time.time() - start_time < duration_seconds:
+                print(f"Time: {time.time() - start_time}")
                 data = stream.read(self.chunk_size, exception_on_overflow=False)
                 frames_for_processing.append(data) # Store for potential reprocessing if needed
                 

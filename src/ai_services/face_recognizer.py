@@ -121,33 +121,78 @@ class FaceRecognizer:
         if not new_embeddings_list:
             print(f"FR ERROR: No embeddings provided for {person_name}.")
             return False
-        
-        if new_face_crops_data_rgb_float:
+
+        if new_face_crops_data_rgb_float and self.known_faces_dir: # Check known_faces_dir here too
             person_image_dir = os.path.join(self.known_faces_dir, person_name)
             os.makedirs(person_image_dir, exist_ok=True)
+            
             for i, crop_data_rgb_float in enumerate(new_face_crops_data_rgb_float):
                 try:
-                    img_to_save = cv2.cvtColor(crop_data_rgb_float, cv2.COLOR_RGB2BGR)
-                    if img_to_save.max() <= 1.0 + 1e-6 :
-                        img_to_save = (img_to_save * 255).astype(np.uint8)
+                    if not isinstance(crop_data_rgb_float, np.ndarray):
+                        print(f"FR WARNING: Crop data {i+1} for {person_name} is not a numpy array. Skipping save.")
+                        continue
+
+                    # Ensure it's float32 first if it's float64
+                    if crop_data_rgb_float.dtype == np.float64:
+                        img_for_conversion = crop_data_rgb_float.astype(np.float32)
                     else:
-                        img_to_save = img_to_save.astype(np.uint8)
+                        img_for_conversion = crop_data_rgb_float
+
+                    # Check if normalized (0-1 range) and scale if necessary
+                    # Then convert to uint8 BEFORE cvtColor if it's already BGR,
+                    # or after cvtColor if it's RGB.
+                    # DeepFace extract_faces usually returns RGB float (0-1).
                     
-                    # Use a more unique filename to avoid overwrites if called multiple times quickly
+                    # Step 1: Ensure it's in 0-1 float range if it's float
+                    if img_for_conversion.dtype in [np.float32, np.float64]:
+                        if img_for_conversion.min() >= 0 and img_for_conversion.max() <= 1.0 + 1e-5: # Allow small epsilon
+                            img_to_save_uint8 = (img_for_conversion * 255).astype(np.uint8)
+                        elif img_for_conversion.min() >=0 and img_for_conversion.max() <= 255 + 1e-5: # Already scaled but float
+                            img_to_save_uint8 = img_for_conversion.astype(np.uint8)
+                        else: # Values out of expected ranges, might be problematic
+                            print(f"FR WARNING: Face crop {i+1} for {person_name} has unexpected float range: min={img_for_conversion.min()}, max={img_for_conversion.max()}. Clamping and converting.")
+                            # Clamp values to 0-1 then scale, or 0-255 if already scaled
+                            if img_for_conversion.max() > 1.0: # Assume it was meant to be 0-255
+                                 np.clip(img_for_conversion, 0, 255, out=img_for_conversion)
+                                 img_to_save_uint8 = img_for_conversion.astype(np.uint8)
+                            else: # Assume it was meant to be 0-1
+                                 np.clip(img_for_conversion, 0, 1, out=img_for_conversion)
+                                 img_to_save_uint8 = (img_for_conversion * 255).astype(np.uint8)
+                    elif img_for_conversion.dtype == np.uint8:
+                        img_to_save_uint8 = img_for_conversion # Already uint8
+                    else:
+                        print(f"FR WARNING: Face crop {i+1} for {person_name} has unsupported dtype {img_for_conversion.dtype}. Skipping save.")
+                        continue
+                        
+                    # Step 2: Convert color from RGB (DeepFace output) to BGR (OpenCV imwrite)
+                    # This must be done on the uint8 image if it was float before.
+                    if len(img_to_save_uint8.shape) == 3 and img_to_save_uint8.shape[2] == 3:
+                        img_to_save_bgr_uint8 = cv2.cvtColor(img_to_save_uint8, cv2.COLOR_RGB2BGR)
+                    else: # Grayscale or already BGR? Unlikely from DeepFace 'face' output
+                        img_to_save_bgr_uint8 = img_to_save_uint8
+
                     filename = f"reg_face_{i+1}_{int(time.time())}_{str(uuid.uuid4())[:4]}.jpg"
-                    cv2.imwrite(os.path.join(person_image_dir, filename), img_to_save)
+                    save_path = os.path.join(person_image_dir, filename)
+                    cv2.imwrite(save_path, img_to_save_bgr_uint8)
+                    # print(f"FR DEBUG: Saved registration image to {save_path}") # Keep for debugging if needed
+
                 except Exception as e_img:
                     print(f"FR ERROR: Could not save registration image {i+1} for {person_name}: {e_img}")
+                    import traceback
+                    traceback.print_exc() # Print full traceback for this error
 
-        existing_person_entry = next((item for item in self.known_face_embeddings if item["label"] == person_name), None)
-        if existing_person_entry:
-            print(f"FR: Updating existing person in embeddings DB: {person_name}")
-            existing_person_entry["embeddings"].extend(new_embeddings_list)
-        else:
-            print(f"FR: Adding new person to embeddings DB: {person_name}")
-            self.known_face_embeddings.append({"label": person_name, "embeddings": new_embeddings_list})
-        
-        return self._save_database()
+            # ... (rest of the function: updating embeddings list and saving .pkl file) ...
+            # This part seems to be working ("FR: Adding new person to embeddings DB: Visitor_b3e398")
+            existing_person_entry = next((item for item in self.known_face_embeddings if item["label"] == person_name), None)
+            # ... (rest of your logic for adding/updating self.known_face_embeddings) ...
+            if existing_person_entry:
+                print(f"FR: Updating existing person in embeddings DB: {person_name}")
+                existing_person_entry["embeddings"].extend(new_embeddings_list)
+            else:
+                print(f"FR: Adding new person to embeddings DB: {person_name}")
+                self.known_face_embeddings.append({"label": person_name, "embeddings": new_embeddings_list})
+            
+            return self._save_database() # Ensure this method exists and saves self.known_face_embeddings
 
     def recognize_face(self, live_face_embedding, recognition_threshold): # Pass threshold
         if live_face_embedding is None or not self.known_face_embeddings:
@@ -185,6 +230,7 @@ class FaceRecognizer:
             if current_person_min_distance < min_overall_distance:
                 min_overall_distance = current_person_min_distance
                 recognized_name = person_label
+            print(f"FR DEBUG (recognize_face): Best match for '{recognized_name}' (could be 'Unknown' initially) with distance: {min_overall_distance:.4f} against threshold: {recognition_threshold}")
         
         if min_overall_distance <= recognition_threshold:
             return recognized_name, min_overall_distance

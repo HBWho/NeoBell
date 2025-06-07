@@ -20,8 +20,9 @@ except ImportError:
 
 # --- Import Custom Modules ---
 _CRITICAL_MODULE_LOAD_ERROR = False
-from services.tts_service import TTSService
-from services.stt_service import STTService
+from services.tts import TTSService
+from services.stt import STTService
+from hal.camera_manager import CameraManager
 from application_logic.visitor_flow_manager import VisitorFlowManager
 
 
@@ -74,7 +75,7 @@ if not _CRITICAL_MODULE_LOAD_ERROR:
         )
         # Pass the app_config to the flow managers so they can access all settings
         visitor_flow_mgr = VisitorFlowManager(app_config=app_config)
-        # delivery_flow_mgr = DeliveryFlowManager(app_config=app_config) # For later
+        # delivery_flow_mgr = DeliveryFlowManager(app_config=app_config) 
 
         # Pre-flight check for STT model
         if not stt.is_ready:
@@ -134,17 +135,19 @@ def main_neo_bell_interaction_loop():
 
     # 1. NeoBell Greets and asks for general intent
     # Modified greeting to be more open
-    greeting = "Hello, I am NeoBell. How can I help you today? For example, are you here to deliver a package, or are you a visitor?"
+    greeting = "Hello, I am NeoBell. Are you here to deliver a package, or are you a visitor?"
     tts.speak(greeting)
     
     time.sleep(0.5) 
 
     # 2. Listen and Transcribe User's Reply
     if app_config.APP_DEBUG_MODE: print("DEBUG Main: NeoBell is listening for initial intent...")
-    transcribed_text = stt.transcribe_audio(
-        duration_seconds=7, 
-        device_id=app_config.STT_MIC_ID # Use configured STT device ID
-    )
+    # TODO: buy a mic
+    # transcribed_text = stt.transcribe_audio(
+    #     duration_seconds=9, 
+    #     device_id=app_config.STT_MIC_ID # Use configured STT device ID
+    # )
+    transcribed_text = "Hello. I am a visitor"
 
     if not transcribed_text: # Handles None or empty string from STT
         tts.speak("I didn't quite catch that. Could you please repeat how I can help you?")
@@ -190,5 +193,9 @@ if __name__ == "__main__":
         # (e.g., person detected at the door, button press)
         # For testing, we run it once.
         print("\n--- Starting NeoBell Main Interaction ---")
-        main_neo_bell_interaction_loop()
+        # main_neo_bell_interaction_loop()
+        cm = CameraManager(camera_id=0, default_width=1920, default_height=1080, default_fps=60)
+        cm.start_video_recording(output_dir=".")
+        cm.stop_video_recording()
+
         print("\n--- NeoBell Main Interaction Finished ---")
