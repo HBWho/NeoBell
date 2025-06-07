@@ -5,4 +5,5 @@ venv/
 env
 models/
 face_db/
+# data/
 certifications/
