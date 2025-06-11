@@ -6,6 +6,8 @@ import 'package:equatable/equatable.dart';
 import 'package:logger/web.dart';
 
 import '../../../../core/services/token_manager.dart';
+import '../../../../core/services/biometric_service.dart';
+import '../../../../core/services/biometric_preferences_service.dart';
 import '../../../../core/usecase/usecase.dart';
 import '../../../notifications/presentation/cubit/notification_cubit.dart';
 import '../../domain/entities/auth_user.dart';
@@ -26,6 +28,8 @@ class AuthCubit extends Cubit<AuthState> {
   final TokenManager _tokenManager;
   final UserProfileCubit _userProfileCubit;
   final NotificationCubit _notificationCubit;
+  final BiometricService _biometricService;
+  final BiometricPreferencesService _biometricPreferencesService;
 
   StreamSubscription? _hubSubscription;
 
@@ -37,6 +41,8 @@ class AuthCubit extends Cubit<AuthState> {
     required TokenManager tokenManager,
     required UserProfileCubit userProfileCubit,
     required NotificationCubit notificationCubit,
+    required BiometricService biometricService,
+    required BiometricPreferencesService biometricPreferencesService,
   }) : _signIn = signIn,
        _signOut = signOut,
        _checkAuthStatus = checkAuthStatus,
@@ -44,6 +50,8 @@ class AuthCubit extends Cubit<AuthState> {
        _tokenManager = tokenManager,
        _userProfileCubit = userProfileCubit,
        _notificationCubit = notificationCubit,
+       _biometricService = biometricService,
+       _biometricPreferencesService = biometricPreferencesService,
        super(AuthInitial()) {
     _listenToAuthEvents();
   }
@@ -78,10 +86,16 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> checkAuthStatus() async {
     emit(AuthInProgress());
     final result = await _checkAuthStatus(NoParams());
-    result.fold((failure) => emit(AuthError(failure.message)), (user) {
+    result.fold((failure) => emit(AuthError(failure.message)), (user) async {
       if (user != null) {
-        emit(AuthAuthenticated(user));
-        _updateFcmToken(); // Update FCM token if available
+        // Check if biometric authentication should be required
+        final shouldRequireBiometric = await _shouldRequireBiometric();
+        if (shouldRequireBiometric) {
+          emit(AuthRequiresBiometric(user));
+        } else {
+          emit(AuthAuthenticated(user));
+          _updateFcmToken(); // Update FCM token if available
+        }
       } else {
         emit(AuthUnauthenticated());
       }
@@ -105,8 +119,10 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> signOut() async {
     emit(AuthInProgress());
     final result = await _signOut(NoParams());
-    result.fold((failure) => emit(AuthError(failure.message)), (_) {
+    result.fold((failure) => emit(AuthError(failure.message)), (_) async {
       _tokenManager.clearToken();
+      // Clear biometric preferences on logout
+      await _biometricPreferencesService.clearBiometricPreferences();
       emit(AuthUnauthenticated());
     });
   }
@@ -140,6 +156,63 @@ class AuthCubit extends Cubit<AuthState> {
       }
     } catch (e) {
       _logger.e('Failed to update FCM token: $e');
+    }
+  }
+
+  /// Check if biometric authentication should be required
+  Future<bool> _shouldRequireBiometric() async {
+    try {
+      // Check if user has biometric enabled in preferences
+      final isBiometricEnabled =
+          await _biometricPreferencesService.isBiometricEnabled();
+      if (!isBiometricEnabled) {
+        _logger.i('Biometric disabled by user preference');
+        return false;
+      }
+
+      // Check if biometric has been skipped
+      final hasBeenSkipped =
+          await _biometricPreferencesService.hasBiometricBeenSkipped();
+      if (hasBeenSkipped) {
+        _logger.i('Biometric has been skipped by user');
+        return false;
+      }
+
+      // Only require biometric if it's available on the device
+      final isAvailable = await _biometricService.isBiometricAvailable();
+      _logger.i('Biometric availability: $isAvailable');
+      return isAvailable;
+    } catch (e) {
+      _logger.e('Error checking biometric requirement: $e');
+      return false;
+    }
+  }
+
+  /// Complete biometric authentication
+  void completeBiometricAuth() {
+    final currentState = state;
+    if (currentState is AuthRequiresBiometric) {
+      emit(AuthAuthenticated(currentState.user));
+      _updateFcmToken(); // Update FCM token after successful biometric auth
+    } else if (currentState is AuthBiometricInProgress) {
+      emit(AuthAuthenticated(currentState.user));
+      _updateFcmToken(); // Update FCM token after successful biometric auth
+    }
+  }
+
+  /// Start biometric authentication process
+  void startBiometricAuth() {
+    final currentState = state;
+    if (currentState is AuthRequiresBiometric) {
+      emit(AuthBiometricInProgress(currentState.user));
+    }
+  }
+
+  /// Handle biometric authentication failure
+  void biometricAuthFailed() {
+    final currentState = state;
+    if (currentState is AuthBiometricInProgress) {
+      emit(AuthRequiresBiometric(currentState.user));
     }
   }
 }

@@ -16,6 +16,7 @@ import 'core/services/navigation_service.dart';
 import 'core/screen/home_screen.dart';
 import 'features/activity_logs/presentation/screens/activity_logs_screen.dart';
 import 'features/auth/presentation/cubit/auth_cubit.dart';
+import 'features/auth/presentation/screens/biometric_auth_screen.dart';
 import 'features/device_management/presentation/screens/device_details_screen.dart';
 import 'features/user_profile/presentation/screens/nfc_screen.dart';
 import 'features/package_deliveries/presentation/screens/package_deliveries_screen.dart';
@@ -44,11 +45,19 @@ class RouterMain {
         return currentPath == '/splash' ? null : '/splash';
       }
 
+      // If the user requires biometric authentication, redirect to biometric screen
+      if (authState is AuthRequiresBiometric ||
+          authState is AuthBiometricInProgress) {
+        return currentPath == '/biometric' ? null : '/biometric';
+      }
+
       // If the user is authenticated, redirect to home if on splash or login page
       // Otherwise, allow access to the current path
       final isLoggedIn = authState is AuthAuthenticated;
       if (isLoggedIn) {
-        if (currentPath == '/splash' || currentPath == '/') {
+        if (currentPath == '/splash' ||
+            currentPath == '/' ||
+            currentPath == '/biometric') {
           _logger.i('User logged in. Redirecting from $currentPath to /home');
           return '/home';
         }
@@ -81,6 +90,13 @@ class RouterMain {
         name: 'splash',
         builder: (context, state) {
           return SplashScreen();
+        },
+      ),
+      GoRoute(
+        path: '/biometric',
+        name: 'biometric',
+        builder: (context, state) {
+          return BiometricAuthScreen();
         },
       ),
       GoRoute(

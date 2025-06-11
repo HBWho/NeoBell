@@ -39,3 +39,23 @@ class AuthError extends AuthState {
   @override
   List<Object> get props => [message];
 }
+
+/// User is authenticated but needs biometric verification
+class AuthRequiresBiometric extends AuthState {
+  final AuthUser user;
+
+  const AuthRequiresBiometric(this.user);
+
+  @override
+  List<Object> get props => [user];
+}
+
+/// Biometric authentication is in progress
+class AuthBiometricInProgress extends AuthState {
+  final AuthUser user;
+
+  const AuthBiometricInProgress(this.user);
+
+  @override
+  List<Object> get props => [user];
+}

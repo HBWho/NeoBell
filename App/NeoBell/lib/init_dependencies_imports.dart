@@ -2,6 +2,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
+import 'package:neobell/core/services/biometric_preferences_service.dart';
+import 'package:neobell/core/services/biometric_service.dart';
 import 'package:neobell/features/device_management/domain/use_cases/add_device_user.dart';
 import 'package:neobell/features/device_management/domain/use_cases/get_device_details.dart';
 import 'package:neobell/features/device_management/domain/use_cases/get_device_users.dart';

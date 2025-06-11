@@ -36,6 +36,14 @@ class InitDependencies {
       () => ApiServiceImpl(tokenManager: serviceLocator<TokenManager>()),
     );
 
+    // Biometric Services
+    serviceLocator.registerLazySingleton<BiometricService>(
+      () => BiometricService(),
+    );
+    serviceLocator.registerLazySingleton<BiometricPreferencesService>(
+      () => BiometricPreferencesService(),
+    );
+
     _initAuth();
     _initNotifications();
     _initUserProfile();
@@ -78,6 +86,9 @@ class InitDependencies {
           tokenManager: serviceLocator<TokenManager>(),
           userProfileCubit: serviceLocator<UserProfileCubit>(),
           notificationCubit: serviceLocator<NotificationCubit>(),
+          biometricService: serviceLocator<BiometricService>(),
+          biometricPreferencesService:
+              serviceLocator<BiometricPreferencesService>(),
         ),
       );
   }
