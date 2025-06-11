@@ -5,6 +5,7 @@ import os
 import threading
 import requests # Para upload S3
 import logging
+from datetime import datetime, timezone
 
 from awscrt.mqtt import Connection, Client, QoS
 from awsiot import mqtt_connection_builder
@@ -21,42 +22,47 @@ PATH_TO_CERTIFICATE = "certs/device.pem.crt"    # Substitua pelo nome do seu arq
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Tópicos MQTT (baseados no SBC_ID)
-# Cadastro de Visitante
-TOPIC_REG_REQ_UPLOAD_URL = f"neobell/sbc/{SBC_ID}/registrations/request-upload-url"
-TOPIC_REG_UPLOAD_URL_RESP = f"neobell/sbc/{SBC_ID}/registrations/upload-url-response"
-# Mensagem de Vídeo
-TOPIC_MSG_REQ_UPLOAD_URL = f"neobell/sbc/{SBC_ID}/messages/request-upload-url"
-TOPIC_MSG_UPLOAD_URL_RESP = f"neobell/sbc/{SBC_ID}/messages/upload-url-response"
-# Permissões
-TOPIC_PERM_REQ = f"neobell/sbc/{SBC_ID}/permissions/request"
-TOPIC_PERM_RESP = f"neobell/sbc/{SBC_ID}/permissions/response"
-# Pacotes
-TOPIC_PKG_REQ = f"neobell/sbc/{SBC_ID}/packages/request"
-TOPIC_PKG_RESP = f"neobell/sbc/{SBC_ID}/packages/response"
-# Logs
-TOPIC_LOG_SUBMIT = f"neobell/sbc/{SBC_ID}/logs/submit"
+# --- Tópicos MQTT ---
+# (As chaves correspondem às ações na Lambda, os valores são os tópicos de requisição)
+TOPIC_MAP = {
+    # Handlers de Upload
+    'visitor_registration_request': f"neobell/sbc/{SBC_ID}/registrations/request-upload-url",
+    'video_message_request': f"neobell/sbc/{SBC_ID}/messages/request-upload-url",
+    
+    # Handlers do SBC Helper
+    'permissions_request': f"neobell/sbc/{SBC_ID}/permissions/request",
+    'package_request': f"neobell/sbc/{SBC_ID}/packages/request",
+    'package_status_update': f"neobell/sbc/{SBC_ID}/packages/status-update/request",
+    'log_submission': f"neobell/sbc/{SBC_ID}/logs/submit",
+    'nfc_verify_request': f"neobell/sbc/{SBC_ID}/nfc/verify-tag/request",
+}
+
+# Tópicos de resposta para inscrição
+RESPONSE_TOPICS = [
+    f"neobell/sbc/{SBC_ID}/registrations/upload-url-response",
+    f"neobell/sbc/{SBC_ID}/messages/upload-url-response",
+    f"neobell/sbc/{SBC_ID}/permissions/response",
+    f"neobell/sbc/{SBC_ID}/packages/response",
+    f"neobell/sbc/{SBC_ID}/packages/status-update/response",
+    f"neobell/sbc/{SBC_ID}/nfc/verify-tag/response"
+]
 
 # Globais para MQTT Connection e Sincronização de Respostas
 mqtt_connection = None
-response_received_events = {
-    TOPIC_REG_UPLOAD_URL_RESP: threading.Event(),
-    TOPIC_MSG_UPLOAD_URL_RESP: threading.Event(),
-    TOPIC_PERM_RESP: threading.Event(),
-    TOPIC_PKG_RESP: threading.Event(),
-}
+response_received_events = {topic: threading.Event() for topic in RESPONSE_TOPICS}
 received_payloads = {}
 
-# --- Callbacks MQTT ---
+# --- Funções Auxiliares e Callbacks MQTT ---
+
 def on_connection_interrupted(connection, error, **kwargs):
     logger.warning(f"Conexão interrompida. Erro: {error}")
 
 def on_connection_resumed(connection, return_code, session_present, **kwargs):
     logger.info(f"Conexão retomada. Código: {return_code}, Sessão Presente: {session_present}")
     if return_code == Connection.RESUME_RECONNECT_SUCCESS and not session_present:
-        logger.info("Sessão não estava presente. Reinscrevendo-se nos tópicos de resposta...")
-        # É importante se reinscrever se a sessão não estava presente
-        # No entanto, as inscrições são feitas dinamicamente antes de cada teste que espera uma resposta.
+        logger.info("Sessão não estava presente. Reinscrevendo-se em todos os tópicos de resposta...")
+        for topic in RESPONSE_TOPICS:
+            subscribe_to_topic(topic)
 
 def on_generic_message_received(topic, payload, dup, qos, retain, **kwargs):
     logger.info(f"Mensagem recebida no tópico '{topic}'")
@@ -65,7 +71,7 @@ def on_generic_message_received(topic, payload, dup, qos, retain, **kwargs):
     try:
         json_payload = json.loads(decoded_payload)
         received_payloads[topic] = json_payload
-        logger.info(f"Payload JSON Decodificado: {json_payload}")
+        logger.info(f"Payload JSON Decodificado para '{topic}': {json_payload}")
     except json.JSONDecodeError:
         logger.error(f"Erro ao decodificar JSON do tópico {topic}. Payload: {decoded_payload}")
         received_payloads[topic] = {"error": "JSONDecodeError", "raw_payload": decoded_payload}
@@ -75,31 +81,23 @@ def on_generic_message_received(topic, payload, dup, qos, retain, **kwargs):
 
 def connect_mqtt():
     global mqtt_connection
-    if mqtt_connection:
-        try: # Tenta desconectar se já existe uma conexão para evitar problemas
-            disconnect_future = mqtt_connection.disconnect()
-            disconnect_future.result(timeout=5.0)
-            logger.info("Conexão MQTT anterior desconectada.")
-        except Exception as e:
-            logger.warning(f"Erro ao desconectar conexão MQTT anterior: {e}")
-        mqtt_connection = None
-
+    if mqtt_connection: return True
 
     logger.info(f"Tentando conectar ao AWS IoT Endpoint: {AWS_IOT_ENDPOINT} com ClientID: {SBC_ID}")
-    mqtt_connection = mqtt_connection_builder.mtls_from_path(
-        endpoint=AWS_IOT_ENDPOINT,
-        cert_filepath=PATH_TO_CERTIFICATE,
-        pri_key_filepath=PATH_TO_PRIVATE_KEY,
-        ca_filepath=PATH_TO_ROOT_CA,
-        on_connection_interrupted=on_connection_interrupted,
-        on_connection_resumed=on_connection_resumed,
-        client_id=SBC_ID,
-        clean_session=True, # Usar True para testes para garantir estado limpo
-        keep_alive_secs=30
-    )
-    connect_future = mqtt_connection.connect()
     try:
-        connect_future.result(timeout=10.0) # Timeout de 10 segundos para conectar
+        mqtt_connection = mqtt_connection_builder.mtls_from_path(
+            endpoint=AWS_IOT_ENDPOINT,
+            cert_filepath=PATH_TO_CERTIFICATE,
+            pri_key_filepath=PATH_TO_PRIVATE_KEY,
+            ca_filepath=PATH_TO_ROOT_CA,
+            on_connection_interrupted=on_connection_interrupted,
+            on_connection_resumed=on_connection_resumed,
+            client_id=SBC_ID,
+            clean_session=True,
+            keep_alive_secs=30
+        )
+        connect_future = mqtt_connection.connect()
+        connect_future.result(timeout=10.0)
         logger.info("Conectado ao AWS IoT Core!")
         return True
     except Exception as e:
@@ -118,69 +116,69 @@ def disconnect_mqtt():
 
 def subscribe_to_topic(topic, qos=QoS.AT_LEAST_ONCE):
     if not mqtt_connection:
-        logger.error("Não conectado ao MQTT. Não é possível se inscrever.")
+        logger.error("Não conectado. Impossível se inscrever.")
         return False
+        
+    if topic in response_received_events:
+        response_received_events[topic].clear()
+    received_payloads.pop(topic, None)
+
     try:
         logger.info(f"Inscrevendo-se no tópico: {topic}")
-        subscribe_future, packet_id = mqtt_connection.subscribe(
-            topic=topic,
-            qos=qos,
-            callback=on_generic_message_received
+        subscribe_future, _ = mqtt_connection.subscribe(
+            topic=topic, qos=qos, callback=on_generic_message_received
         )
         subscribe_result = subscribe_future.result(timeout=5.0)
-        logger.info(f"Inscrito no tópico '{topic}' com QoS {subscribe_result['qos']}")
-        # Limpar evento e payload anteriores para este tópico
-        if topic in response_received_events:
-            response_received_events[topic].clear()
-        received_payloads.pop(topic, None)
+        logger.info(f"Inscrito em '{topic}' com QoS {subscribe_result['qos']}")
         return True
     except Exception as e:
-        logger.error(f"Falha ao se inscrever no tópico '{topic}': {e}")
+        logger.error(f"Falha ao se inscrever em '{topic}': {e}")
         return False
 
-def publish_message(topic, payload_dict, qos=QoS.AT_LEAST_ONCE):
+def publish_and_wait(request_topic_key, payload_dict, response_topic, timeout=15.0):
     if not mqtt_connection:
-        logger.error("Não conectado ao MQTT. Não é possível publicar.")
-        return False
-    try:
-        logger.info(f"Publicando no tópico: {topic}")
-        logger.debug(f"Payload da publicação: {json.dumps(payload_dict)}")
-        publish_future, _ = mqtt_connection.publish(
-            topic=topic,
-            payload=json.dumps(payload_dict),
-            qos=qos
-        )
-        publish_future.result(timeout=5.0) # Espera PUBACK para QoS 1
-        logger.info(f"Mensagem publicada com sucesso no tópico '{topic}'.")
-        return True
-    except Exception as e:
-        logger.error(f"Falha ao publicar no tópico '{topic}': {e}")
-        return False
+        logger.error("Não conectado. Impossível executar teste.")
+        return None
+    
+    request_topic = TOPIC_MAP.get(request_topic_key)
+    if not request_topic:
+        logger.error(f"Chave de tópico inválida: {request_topic_key}")
+        return None
 
-def wait_for_response(topic, timeout=30.0):
-    if topic in response_received_events:
-        logger.info(f"Aguardando resposta no tópico '{topic}' por até {timeout}s...")
-        if response_received_events[topic].wait(timeout=timeout):
-            logger.info(f"Resposta recebida para o tópico '{topic}'.")
-            return received_payloads.get(topic)
-        else:
-            logger.warning(f"Timeout: Nenhuma resposta recebida para o tópico '{topic}' em {timeout}s.")
-            return None
+    if not subscribe_to_topic(response_topic):
+        return None
+
+    logger.info(f"Publicando em '{request_topic}'")
+    try:
+        publish_future, _ = mqtt_connection.publish(
+            topic=request_topic, payload=json.dumps(payload_dict), qos=QoS.AT_LEAST_ONCE
+        )
+        publish_future.result(timeout=5.0)
+        logger.info(f"Mensagem publicada com sucesso em '{request_topic}'.")
+    except Exception as e:
+        logger.error(f"Falha ao publicar em '{request_topic}': {e}")
+        return None
+
+    logger.info(f"Aguardando resposta em '{response_topic}' por até {timeout}s...")
+    if response_received_events[response_topic].wait(timeout=timeout):
+        logger.info(f"Resposta recebida para '{request_topic_key}'.")
+        return received_payloads.get(response_topic)
     else:
-        logger.error(f"Nenhum evento de espera configurado para o tópico '{topic}'.")
+        logger.warning(f"Timeout: Nenhuma resposta recebida para '{request_topic_key}' em {timeout}s.")
         return None
 
 def upload_to_s3(presigned_url, file_path, metadata_headers, content_type='application/octet-stream'):
     try:
-        logger.info(f"Fazendo upload do arquivo '{file_path}' para S3 usando URL pré-assinada.")
-        logger.debug(f"URL: {presigned_url}")
-        logger.debug(f"Cabeçalhos de Metadados: {metadata_headers}")
-        
+        logger.info(f"Fazendo upload do arquivo '{file_path}' para S3 via URL pré-assinada.")
+        if not os.path.exists(file_path):
+            logger.error(f"Arquivo não encontrado: {file_path}")
+            return False
+            
         with open(file_path, 'rb') as f:
             file_data = f.read()
         
         headers_for_s3 = {'Content-Type': content_type}
-        if metadata_headers: # Adiciona cabeçalhos x-amz-meta-*
+        if metadata_headers:
             headers_for_s3.update(metadata_headers)
 
         response = requests.put(presigned_url, data=file_data, headers=headers_for_s3)
@@ -192,9 +190,6 @@ def upload_to_s3(presigned_url, file_path, metadata_headers, content_type='appli
         if hasattr(e, 'response') and e.response is not None:
             logger.error(f"Resposta do S3 (Erro): {e.response.status_code} - {e.response.text}")
         return False
-    except FileNotFoundError:
-        logger.error(f"Arquivo não encontrado para upload: {file_path}")
-        return False
 
 def create_dummy_file(filename, size_kb=10):
     if not os.path.exists(filename):
@@ -205,178 +200,184 @@ def create_dummy_file(filename, size_kb=10):
 
 # --- Funções de Teste Específicas ---
 
-def testar_cadastro_visitante():
-    logger.info("\n--- INICIANDO TESTE: Cadastro de Visitante ---")
-    if not subscribe_to_topic(TOPIC_REG_UPLOAD_URL_RESP): return
-
+def testar_cadastro_novo_visitante(visitor_name, permission):
+    logger.info(f"\n--- INICIANDO TESTE: Cadastrar Novo Visitante ({visitor_name}, Permissão: {permission}) ---")
     image_file = create_dummy_file("dummy_visitor_image.jpg", size_kb=50)
-    visitor_name = "Visitante Teste IaC"
-    permission_level = 1
     face_tag_id = str(uuid.uuid4())
 
-    payload_reg_req = {
-        "sbc_id": SBC_ID, # Algumas Lambdas podem esperar isso no payload também
+    payload = {
         "face_tag_id": face_tag_id,
         "visitor_name": visitor_name,
-        "permission_level": str(permission_level)
+        "permission_level": permission
     }
-    if not publish_message(TOPIC_REG_REQ_UPLOAD_URL, payload_reg_req): return
-
-    response_data = wait_for_response(TOPIC_REG_UPLOAD_URL_RESP)
-    if response_data and "presigned_url" in response_data:
-        logger.info("URL pré-assinada para cadastro recebida.")
+    
+    response = publish_and_wait(
+        'visitor_registration_request',
+        payload,
+        f"neobell/sbc/{SBC_ID}/registrations/upload-url-response"
+    )
+    
+    if response and "presigned_url" in response:
+        logger.info(f"URL para cadastro de '{visitor_name}' recebida com sucesso.")
         upload_to_s3(
-            response_data["presigned_url"],
+            response["presigned_url"],
             image_file,
-            response_data.get("required_metadata_headers"),
+            response.get("required_metadata_headers"),
             content_type='image/jpeg'
         )
+        return face_tag_id
     else:
-        logger.error(f"Falha ao obter URL pré-assinada para cadastro. Resposta: {response_data}")
-    logger.info("--- FIM TESTE: Cadastro de Visitante ---\n")
+        logger.error(f"Falha ao obter URL para cadastro de '{visitor_name}'. Resposta: {response}")
+        return None
+    logger.info("--- FIM TESTE: Cadastrar Novo Visitante ---\n")
 
-def testar_envio_mensagem_video():
-    logger.info("\n--- INICIANDO TESTE: Envio de Mensagem de Vídeo ---")
-    if not subscribe_to_topic(TOPIC_MSG_UPLOAD_URL_RESP): return
-
-    video_file = create_dummy_file("dummy_video_message.mp4", size_kb=200)
-    duration_sec = 30
-    # visitor_face_tag_id_opcional = str(uuid.uuid4()) # Se o visitante for conhecido
-
-    payload_msg_req = {
-        "sbc_id": SBC_ID,
-        "duration_sec": str(duration_sec),
-        # "visitor_face_tag_id": visitor_face_tag_id_opcional 
+def testar_envio_mensagem_video(face_id_visitante):
+    logger.info(f"\n--- INICIANDO TESTE: Envio de Mensagem de Vídeo (Visitante: {face_id_visitante}) ---")
+    video_file = create_dummy_file("dummy_video_message.mp4", size_kb=250)
+    
+    payload = {
+        "visitor_face_tag_id": face_id_visitante,
+        "duration_sec": "30"
     }
-    if not publish_message(TOPIC_MSG_REQ_UPLOAD_URL, payload_msg_req): return
-
-    response_data = wait_for_response(TOPIC_MSG_UPLOAD_URL_RESP)
-    if response_data and "presigned_url" in response_data:
-        logger.info("URL pré-assinada para vídeo recebida.")
+    
+    response = publish_and_wait(
+        'video_message_request',
+        payload,
+        f"neobell/sbc/{SBC_ID}/messages/upload-url-response"
+    )
+    
+    if response and "presigned_url" in response:
+        logger.info(f"URL para envio de vídeo do visitante '{face_id_visitante}' recebida.")
         upload_to_s3(
-            response_data["presigned_url"],
+            response["presigned_url"],
             video_file,
-            response_data.get("required_metadata_headers"),
+            response.get("required_metadata_headers"),
             content_type='video/mp4'
         )
     else:
-        logger.error(f"Falha ao obter URL pré-assinada para vídeo. Resposta: {response_data}")
+        logger.error(f"Falha ao obter URL para envio de vídeo. O visitante tem permissão 'Allowed'? Resposta: {response}")
     logger.info("--- FIM TESTE: Envio de Mensagem de Vídeo ---\n")
 
-def testar_requisicao_permissao():
-    logger.info("\n--- INICIANDO TESTE: Requisição de Permissão de Pessoa ---")
-    if not subscribe_to_topic(TOPIC_PERM_RESP): return
+def testar_verificacao_permissao(face_id_teste="c9b8a712-9b2f-4c3d-9d5e-1f8a7b6c5d4e"):
+    logger.info("\n--- INICIANDO TESTE: Verificação de Permissão Existente ---")
+    payload = {"face_tag_id": face_id_teste}
+    response = publish_and_wait(
+        'permissions_request', 
+        payload, 
+        f"neobell/sbc/{SBC_ID}/permissions/response"
+    )
+    if response:
+        logger.info(f"Resultado do Teste de Verificação de Permissão: {response}")
+    logger.info("--- FIM TESTE: Verificação de Permissão Existente ---\n")
 
-    # Use um face_tag_id que você espera que exista ou não, para testar ambos os casos
-    face_tag_id_para_teste = "c9b8a712-9b2f-4c3d-9d5e-1f8a7b6c5d4e" # Exemplo
+def testar_requisicao_pacote(id_type, id_value):
+    logger.info(f"\n--- INICIANDO TESTE: Requisição de Pacote (tipo: {id_type}) ---")
+    payload = {"identifier_type": id_type, "identifier_value": id_value}
+    response = publish_and_wait(
+        'package_request', 
+        payload, 
+        f"neobell/sbc/{SBC_ID}/packages/response"
+    )
+    if response:
+        logger.info(f"Resultado do Teste de Pacote ({id_type}={id_value}): {response}")
+    logger.info("--- FIM TESTE: Requisição de Pacote ---\n")
+
+def testar_atualizacao_status_pacote(order_id, new_status):
+    logger.info(f"\n--- INICIANDO TESTE: Atualização de Status de Pacote ---")
+    payload = {"order_id": order_id, "new_status": new_status}
+    response = publish_and_wait(
+        'package_status_update',
+        payload,
+        f"neobell/sbc/{SBC_ID}/packages/status-update/response"
+    )
+    if response:
+        logger.info(f"Resultado da Atualização de Status (order_id={order_id}, status={new_status}): {response}")
+    logger.info("--- FIM TESTE: Atualização de Status de Pacote ---\n")
+
+def testar_verificacao_nfc(nfc_id="04:AB:CD:12:34:56:78"):
+    logger.info("\n--- INICIANDO TESTE: Verificação de Tag NFC ---")
+    payload = {"nfc_id_scanned": nfc_id}
+    response = publish_and_wait(
+        'nfc_verify_request',
+        payload,
+        f"neobell/sbc/{SBC_ID}/nfc/verify-tag/response"
+    )
+    if response:
+        logger.info(f"Resultado da Verificação NFC (tag={nfc_id}): {response}")
+    logger.info("--- FIM TESTE: Verificação de Tag NFC ---\n")
     
-    payload_perm_req = {
-        "sbc_id": SBC_ID,
-        "face_tag_id": face_tag_id_para_teste
-    }
-    if not publish_message(TOPIC_PERM_REQ, payload_perm_req): return
-
-    response_data = wait_for_response(TOPIC_PERM_RESP)
-    if response_data:
-        logger.info(f"Resposta da requisição de permissão: {response_data}")
-    else:
-        logger.error("Nenhuma resposta para requisição de permissão.")
-    logger.info("--- FIM TESTE: Requisição de Permissão de Pessoa ---\n")
-
-def testar_requisicao_pacote():
-    logger.info("\n--- INICIANDO TESTE: Requisição de Informação de Pacote ---")
-    if not subscribe_to_topic(TOPIC_PKG_RESP): return
-
-    # Teste por order_id
-    payload_pkg_req_order = {
-        "sbc_id": SBC_ID,
-        "identifier_type": "order_id",
-        "identifier_value": "ORDER12345" # Use um ID de pedido de teste
-    }
-    logger.info("Testando por order_id...")
-    if publish_message(TOPIC_PKG_REQ, payload_pkg_req_order):
-        response_data_order = wait_for_response(TOPIC_PKG_RESP)
-        if response_data_order:
-            logger.info(f"Resposta da requisição de pacote (order_id): {response_data_order}")
-        else:
-            logger.error("Nenhuma resposta para requisição de pacote (order_id).")
-    
-    # Limpar para o próximo teste
-    if TOPIC_PKG_RESP in response_received_events:
-        response_received_events[TOPIC_PKG_RESP].clear()
-    received_payloads.pop(TOPIC_PKG_RESP, None)
-    # Reinscrever pode ser necessário se o callback for único e não rearmado, mas com clear() deve bastar
-    # subscribe_to_topic(TOPIC_PKG_RESP) 
-
-    # Teste por tracking_number
-    payload_pkg_req_track = {
-        "sbc_id": SBC_ID,
-        "identifier_type": "tracking_number",
-        "identifier_value": "TRACK98765" # Use um número de rastreio de teste
-    }
-    logger.info("Testando por tracking_number...")
-    if publish_message(TOPIC_PKG_REQ, payload_pkg_req_track):
-        response_data_track = wait_for_response(TOPIC_PKG_RESP)
-        if response_data_track:
-            logger.info(f"Resposta da requisição de pacote (tracking_number): {response_data_track}")
-        else:
-            logger.error("Nenhuma resposta para requisição de pacote (tracking_number).")
-            
-    logger.info("--- FIM TESTE: Requisição de Informação de Pacote ---\n")
-
 def testar_envio_log():
-    logger.info("\n--- INICIANDO TESTE: Envio de Log do Dispositivo ---")
-    # Não há resposta MQTT esperada para este, então não precisa se inscrever.
-    
+    logger.info("\n--- INICIANDO TESTE: Envio de Log ---")
     log_payload = {
-        "sbc_id": SBC_ID,
         "log_timestamp": datetime.now(timezone.utc).isoformat(),
-        "event_type": "DEVICE_BOOT",
-        "event_details": {
-            "firmware_version": "1.2.3",
-            "status": "success"
-        }
+        "event_type": "USER_INTERACTION",
+        "summary": "Touchscreen pressed by user.",
+        "event_details": {"component": "screen", "action": "touch"}
     }
-    if publish_message(TOPIC_LOG_SUBMIT, log_payload):
-        logger.info("Payload de log enviado.")
-    else:
-        logger.error("Falha ao enviar payload de log.")
-    logger.info("--- FIM TESTE: Envio de Log do Dispositivo ---\n")
+    
+    request_topic = TOPIC_MAP['log_submission']
+    logger.info(f"Publicando em '{request_topic}' (sem esperar resposta)")
+    try:
+        publish_future, _ = mqtt_connection.publish(
+            topic=request_topic, payload=json.dumps(log_payload), qos=QoS.AT_LEAST_ONCE
+        )
+        publish_future.result(timeout=5.0)
+        logger.info("Payload de log enviado com sucesso.")
+    except Exception as e:
+        logger.error(f"Falha ao enviar payload de log: {e}")
+    logger.info("--- FIM TESTE: Envio de Log ---\n")
 
 
 if __name__ == '__main__':
-    # Validação inicial de placeholders
     if "YOUR_AWS_IOT_ENDPOINT" in AWS_IOT_ENDPOINT:
         logger.error("ERRO: AWS_IOT_ENDPOINT não foi configurado. Edite o script.")
         exit(1)
     if not all(os.path.exists(p) for p in [PATH_TO_ROOT_CA, PATH_TO_PRIVATE_KEY, PATH_TO_CERTIFICATE]):
-        logger.error("ERRO: Um ou mais arquivos de certificado/chave não foram encontrados. Verifique os caminhos em PATH_TO_...")
+        logger.error("ERRO: Arquivos de certificado não encontrados. Verifique os caminhos.")
         exit(1)
 
-    # Criar pasta de certificados se não existir (apenas para organização local)
-    if not os.path.exists("certs"):
-        os.makedirs("certs")
-        logger.info("Pasta 'certs' criada. Por favor, coloque seus arquivos de certificado e chave lá.")
-
-    # Conectar ao MQTT
     if not connect_mqtt():
-        exit(1) # Sai se não conseguir conectar
+        exit(1)
+
+    for topic in RESPONSE_TOPICS:
+        subscribe_to_topic(topic)
+    
+    time.sleep(1) 
 
     try:
         # --- COMENTE/DESCOMENTE AS LINHAS ABAIXO PARA ATIVAR/DESATIVAR TESTES ---
+
+        visitor_face_tag = ""  # Variável para armazenar o face_tag_id do visitante cadastrado
         
-        testar_cadastro_visitante()
-        time.sleep(2) # Pequena pausa entre testes
-
-        testar_envio_mensagem_video()
+        # Teste 1: Cadastrar um novo visitante
+        visitor_face_tag = testar_cadastro_novo_visitante(visitor_name="Maria Visitante", permission="Allowed")
         time.sleep(2)
 
-        testar_requisicao_permissao()
-        time.sleep(2)
-
-        testar_requisicao_pacote()
+        # Teste 2: Enviar uma mensagem de vídeo (use um face_id que você sabe que tem permissão "Allowed")
+        testar_envio_mensagem_video(face_id_visitante=visitor_face_tag)
         time.sleep(2)
         
+        # Teste 3: Verificar permissão de um visitante existente
+        testar_verificacao_permissao(face_id_teste=visitor_face_tag)
+        time.sleep(2)
+
+        # Teste 4: Requisitar info de pacote por ID do pedido
+        testar_requisicao_pacote(id_type="order_id", id_value="ORDER_12345_XYZ")
+        time.sleep(2)
+        
+        # Teste 5: Requisitar info de pacote por número de rastreio
+        testar_requisicao_pacote(id_type="tracking_number", id_value="TRACK_98765_ABC")
+        time.sleep(2)
+        
+        # Teste 6: Atualizar status de um pacote
+        testar_atualizacao_status_pacote(order_id="ORDER_12345_XYZ", new_status="delivered")
+        time.sleep(2)
+
+        # Teste 7: Verificar uma tag NFC
+        testar_verificacao_nfc(nfc_id="04:1A:2B:3C:4D:5E:6F")
+        time.sleep(2)
+        
+        # Teste 8: Enviar um log do dispositivo
         testar_envio_log()
         time.sleep(2)
 
@@ -387,4 +388,3 @@ if __name__ == '__main__':
     finally:
         disconnect_mqtt()
         logger.info("Script de teste finalizado.")
-

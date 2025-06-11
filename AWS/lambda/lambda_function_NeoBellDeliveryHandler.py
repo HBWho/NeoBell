@@ -257,13 +257,12 @@ def handle_put_delivery_by_id(requesting_user_id, path_params, query_params, req
         "tracking_number": "tracking_number_val",
         "carrier": "carrier_val",
         "expected_date": "expected_date_val",
-        "status": "status_val" # Status can be updated by user (e.g., "retrieved_by_user")
-                               # or by system (e.g., "in_box1" - via another Lambda/process)
+        "status": "status_val" 
     }
     
     # Validate status if provided
     if "status" in parsed_body:
-        valid_statuses = ["pending", "in_box1", "secured_in_box2", "retrieved_by_user"] # Add others as needed
+        valid_statuses = ["pending", "delivered", "retrieved_by_user", "cancelled"]
         if parsed_body["status"] not in valid_statuses:
             return format_error_response(400, f"Invalid status. Allowed values: {', '.join(valid_statuses)}")
     

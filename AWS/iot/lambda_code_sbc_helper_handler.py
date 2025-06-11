@@ -16,12 +16,12 @@ EXPECTEDDELIVERIES_TABLE_NAME = os.environ.get('EXPECTEDDELIVERIES_TABLE_NAME', 
 EVENTLOGS_TABLE_NAME = os.environ.get('EVENTLOGS_TABLE_NAME', 'EventLogs')
 DEVICEUSERLINKS_TABLE_NAME = os.environ.get('DEVICEUSERLINKS_TABLE_NAME', 'DeviceUserLinks')
 USER_NFC_TAGS_TABLE_NAME = os.environ.get('USER_NFC_TAGS_TABLE_NAME', 'UserNFCTags')
-NOTIFICATION_LAMBDA_NAME_ENV = os.environ.get('NOTIFICATION_LAMBDA_NAME', 'NeoBellNotificationHandler')
 
 # Tópicos de resposta MQTT (parciais, sbc_id será formatado)
 PERMISSIONS_RESPONSE_TOPIC_TPL = "neobell/sbc/{sbc_id}/permissions/response"
 PACKAGES_RESPONSE_TOPIC_TPL = "neobell/sbc/{sbc_id}/packages/response"
 NFC_VERIFY_RESPONSE_TOPIC_TPL = "neobell/sbc/{sbc_id}/nfc/verify-tag/response"
+PACKAGE_STATUS_UPDATE_RESPONSE_TOPIC_TPL = "neobell/sbc/{sbc_id}/packages/status-update/response"
 
 # Clientes AWS
 dynamodb_resource = boto3.resource('dynamodb', region_name=AWS_REGION)
@@ -108,7 +108,7 @@ def get_users_for_sbc(sbc_id):
         return [] # Retorna lista vazia em caso de erro
 
 def handle_package_request(sbc_id, payload):
-    logger.info(f"Processando requisicao_de_pacote para sbc_id: {sbc_id} com payload: {payload} - Lógica Atualizada")
+    logger.info(f"Processando requisicao_de_pacote para sbc_id: {sbc_id} com payload: {payload}")
     
     if not EXPECTEDDELIVERIES_TABLE_NAME:
         logger.error("Nome da tabela ExpectedDeliveries não configurado.")
@@ -201,6 +201,117 @@ def handle_package_request(sbc_id, payload):
         }
         return error_response_data
 
+def handle_package_status_update(sbc_id, payload):
+    """
+    Atualiza o status de um pacote específico.
+    Espera order_id e new_status no payload.
+    """
+    logger.info(f"Processando package_status_update para sbc_id: {sbc_id}, payload: {payload}")
+    
+    if not EXPECTEDDELIVERIES_TABLE_NAME:
+        logger.error("Nome da tabela ExpectedDeliveries não configurado.")
+        return {"error": "Configuração da tabela de entregas esperadas ausente."}
+    
+    if not DEVICEUSERLINKS_TABLE_NAME:
+        logger.error("Nome da tabela DeviceUserLinks não configurado.")
+        return {"error": "Configuração da tabela de links de dispositivo ausente."}
+
+    order_id = payload.get('order_id')
+    new_status = payload.get('new_status')
+
+    if not order_id or not new_status:
+        logger.error("order_id ou new_status ausente no payload para package_status_update.")
+        return {"error": "order_id ou new_status ausente no payload."}
+
+    # Validar status
+    valid_statuses = ["pending", "delivered", "retrieved_by_user", "cancelled"]
+    if new_status not in valid_statuses:
+        logger.error(f"Status inválido: {new_status}. Valores permitidos: {valid_statuses}")
+        return {"error": f"Status inválido. Valores permitidos: {', '.join(valid_statuses)}"}
+
+    try:
+        # Buscar usuários vinculados ao SBC
+        linked_user_ids = get_users_for_sbc(sbc_id)
+        
+        if not linked_user_ids:
+            logger.warning(f"Nenhum usuário vinculado encontrado para sbc_id: {sbc_id}.")
+            return {
+                "status_updated": False,
+                "reason": "Nenhum usuário vinculado ao dispositivo.",
+                "order_id": order_id,
+                "requested_status": new_status
+            }
+
+        deliveries_table = dynamodb_resource.Table(EXPECTEDDELIVERIES_TABLE_NAME)
+        package_found = False
+        update_successful = False
+        user_id_found = None
+
+        # Procurar o pacote entre os usuários vinculados
+        for user_id in linked_user_ids:
+            try:
+                response = deliveries_table.get_item(
+                    Key={'user_id': user_id, 'order_id': order_id}
+                )
+                
+                if 'Item' in response:
+                    package_found = True
+                    user_id_found = user_id
+                    logger.info(f"Pacote encontrado para user_id: {user_id}, order_id: {order_id}")
+                    
+                    # Atualizar o status
+                    current_timestamp = datetime.now(timezone.utc).isoformat()
+                    
+                    update_response = deliveries_table.update_item(
+                        Key={'user_id': user_id, 'order_id': order_id},
+                        UpdateExpression="SET #status = :new_status, updated_at = :timestamp",
+                        ExpressionAttributeNames={'#status': 'status'},
+                        ExpressionAttributeValues={
+                            ':new_status': new_status,
+                            ':timestamp': current_timestamp
+                        },
+                        ReturnValues="UPDATED_NEW"
+                    )
+                    
+                    update_successful = True
+                    logger.info(f"Status atualizado com sucesso para order_id: {order_id}, novo status: {new_status}")
+                    break
+                    
+            except Exception as e_update:
+                logger.error(f"Erro ao atualizar pacote para user_id {user_id}, order_id {order_id}: {str(e_update)}", exc_info=True)
+
+        if not package_found:
+            return {
+                "status_updated": False,
+                "reason": "Pacote não encontrado para os usuários vinculados ao dispositivo.",
+                "order_id": order_id,
+                "requested_status": new_status
+            }
+        
+        if update_successful:
+            return {
+                "status_updated": True,
+                "order_id": order_id,
+                "new_status": new_status,
+                "user_id": user_id_found,
+                "updated_at": current_timestamp
+            }
+        else:
+            return {
+                "status_updated": False,
+                "reason": "Falha ao atualizar o status do pacote.",
+                "order_id": order_id,
+                "requested_status": new_status
+            }
+
+    except Exception as e:
+        logger.error(f"Erro crítico em handle_package_status_update para sbc_id {sbc_id}: {str(e)}", exc_info=True)
+        return {
+            "status_updated": False,
+            "error": "Erro interno do servidor ao atualizar status do pacote.",
+            "order_id": order_id,
+            "requested_status": new_status
+        }
 
 def handle_log_submission(sbc_id, payload):
     logger.info(f"Processando enviar_log para sbc_id: {sbc_id}, payload: {payload}")
@@ -210,6 +321,7 @@ def handle_log_submission(sbc_id, payload):
 
     log_timestamp = payload.get('log_timestamp') 
     event_type = payload.get('event_type')
+    summary = payload.get('summary', '')
     event_details = payload.get('event_details', {})
 
     if not log_timestamp or not event_type:
@@ -226,41 +338,12 @@ def handle_log_submission(sbc_id, payload):
             'event_type': event_type,
             'timestamp': log_timestamp, 
             'received_at': datetime.now(timezone.utc).isoformat(),
+            'summary': summary,
             'details': event_details
         }
         
         event_logs_table.put_item(Item=item_to_log)
         logger.info(f"Log salvo na tabela '{EVENTLOGS_TABLE_NAME}': {item_to_log}")
-
-        notification_request_payload = {
-            "sbc_id": sbc_id,
-            "event_type_source": "sbc_log_submission",
-            "log_details": {
-                "event_type": event_type,
-                "summary": f"Evento '{event_type}' reportado pelo dispositivo {sbc_id}.",
-                "details": event_details
-            }
-        }
-        
-        if NOTIFICATION_LAMBDA_NAME_ENV:
-            try:
-                logger.info(f"Invocando NeoBellNotificationHandler ({NOTIFICATION_LAMBDA_NAME_ENV}) com payload: {json.dumps(notification_request_payload)}")
-                response = lambda_client.invoke(
-                    FunctionName=NOTIFICATION_LAMBDA_NAME_ENV,
-                    InvocationType='Event',
-                    Payload=json.dumps(notification_request_payload)
-                )
-                if response.get('StatusCode') == 202:
-                    logger.info(f"NeoBellNotificationHandler ({NOTIFICATION_LAMBDA_NAME_ENV}) invocada com sucesso.")
-                else:
-                    response_payload_str = "N/A"
-                    if response.get('Payload'):
-                        response_payload_str = response['Payload'].read().decode('utf-8')
-                    logger.warning(f"Invocação da NeoBellNotificationHandler ({NOTIFICATION_LAMBDA_NAME_ENV}) retornou status inesperado: {response.get('StatusCode')}. Resposta Payload: {response_payload_str}")
-            except Exception as e_invoke:
-                logger.error(f"Erro ao invocar NeoBellNotificationHandler ({NOTIFICATION_LAMBDA_NAME_ENV}): {str(e_invoke)}", exc_info=True)
-        else:
-            logger.warning("Nome da Lambda de Notificação (NOTIFICATION_LAMBDA_NAME_ENV) não configurado.")
 
         return {'message': 'Log recebido e processado.'}
 
@@ -358,6 +441,13 @@ def lambda_handler(event, context):
            topic_parts[5] == 'request':
             action_type = 'nfc_verify_request'
         
+        # Formato: neobell/sbc/{sbc_id_from_topic}/packages/status-update/request (6 partes)
+        elif len(topic_parts) == 6 and \
+             topic_parts[0] == 'neobell' and topic_parts[1] == 'sbc' and \
+             topic_parts[3] == 'packages' and topic_parts[4] == 'status-update' and \
+             topic_parts[5] == 'request':
+            action_type = 'package_status_update'
+        
         # Formato: neobell/sbc/{sbc_id_from_topic}/action_keyword/verb (5 partes)
         elif len(topic_parts) == 5 : 
             potential_action_keyword = topic_parts[3] # permissions, packages, logs
@@ -391,6 +481,9 @@ def lambda_handler(event, context):
     elif action_type == 'package_request':
         response_topic = PACKAGES_RESPONSE_TOPIC_TPL.format(sbc_id=sbc_id)
         result_payload_for_lambda_body = handle_package_request(sbc_id, event)
+    elif action_type == 'package_status_update':
+        response_topic = PACKAGE_STATUS_UPDATE_RESPONSE_TOPIC_TPL.format(sbc_id=sbc_id)
+        result_payload_for_lambda_body = handle_package_status_update(sbc_id, event)
     elif action_type == 'log_submission':
         result_payload_for_lambda_body = handle_log_submission(sbc_id, event)
     elif action_type == 'nfc_verify_request':

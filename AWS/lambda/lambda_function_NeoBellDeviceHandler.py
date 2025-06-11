@@ -141,8 +141,7 @@ def handle_get_devices(requesting_user_id, path_params, query_params, body):
                         "sbc_id": sbc_id,
                         "device_friendly_name": device_info.get("device_friendly_name"),
                         "role_on_device": link.get("role"),
-                        "status": device_info.get("status"),
-                        "last_seen": device_info.get("last_seen")
+                        "status": device_info.get("status")
                     })
         
         result = {"items": devices_details}
@@ -191,9 +190,7 @@ def handle_get_device_by_id(requesting_user_id, path_params, query_params, body)
             "user_role_on_device": user_link.get("role"),
             "status": device_item.get("status"),
             "firmware_version": device_item.get("firmware_version"),
-            "registered_at": device_item.get("registered_at"),
-            "last_seen": device_item.get("last_seen"),
-            "network_info": device_item.get("network_info", {})
+            "registered_at": device_item.get("registered_at")
         }
         return format_response(200, response_payload)
 
