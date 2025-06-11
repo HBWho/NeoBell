@@ -38,7 +38,7 @@ class _AddDeviceUserDialogState extends State<AddDeviceUserDialog> {
         }
       },
       child: AlertDialog(
-        title: const Text('Adicionar Usuário'),
+        title: const Text('Add User to Device'),
         content: Form(
           key: _formKey,
           child: Column(
@@ -92,7 +92,7 @@ class _AddDeviceUserDialogState extends State<AddDeviceUserDialog> {
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                    : const Text('Adicionar'),
+                    : const Text('Add User'),
           ),
         ],
       ),

@@ -165,7 +165,7 @@ class _WatchVideoScreenState extends State<WatchVideoScreen> {
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => context.pop(),
-              child: const Text('Voltar'),
+              child: const Text('Back to Messages'),
             ),
           ],
         ),
@@ -298,7 +298,7 @@ class _WatchVideoScreenState extends State<WatchVideoScreen> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Informações do Vídeo'),
+            title: const Text('Video Information'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -318,13 +318,13 @@ class _WatchVideoScreenState extends State<WatchVideoScreen> {
                   '${message.recordedAt.hour.toString().padLeft(2, '0')}:${message.recordedAt.minute.toString().padLeft(2, '0')}',
                 ),
                 _buildInfoRow('Duration:', '${message.durationSec} seconds'),
-                _buildInfoRow('Viewed:', message.isViewed ? 'Yes' : 'NNo'),
+                _buildInfoRow('Viewed:', message.isViewed ? 'Yes' : 'No'),
               ],
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Fechar'),
+                child: const Text('Close'),
               ),
             ],
           ),
