@@ -84,8 +84,7 @@ class DeviceRemoteDataSourceImpl implements DeviceRemoteDataSource {
         sbcId: sbcId,
         deviceFriendlyName: deviceFriendlyName,
         roleOnDevice: 'Owner', // Placeholder
-        status: 'online', // Placeholder
-        lastSeen: DateTime.now(),
+        status: 'active', // Placeholder
       );
     } catch (e) {
       throw ServerException(e.toString());

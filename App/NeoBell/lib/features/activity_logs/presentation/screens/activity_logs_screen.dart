@@ -17,13 +17,11 @@ class ActivityLogsScreen extends StatefulWidget {
 }
 
 class _ActivityLogsScreenState extends State<ActivityLogsScreen> {
-  final ScrollController _scrollController = ScrollController();
   ActivityLogFilter _currentFilter = const ActivityLogFilter(limit: 20);
 
   @override
   void initState() {
     super.initState();
-    //_scrollController.addListener(_onScroll);
     final currentState = context.read<ActivityLogBloc>().state;
     if (currentState is ActivityLogInitial) {
       context.read<ActivityLogBloc>().add(
@@ -34,20 +32,8 @@ class _ActivityLogsScreenState extends State<ActivityLogsScreen> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
     super.dispose();
   }
-
-  // TODO: Scroll listener for loading more logs
-  // void _onScroll() {
-  //   if (_scrollController.position.pixels >=
-  //       _scrollController.position.maxScrollExtent * 0.9) {
-  //     final state = context.read<ActivityLogBloc>().state;
-  //     if (state is ActivityLogLoaded && state.hasMore) {
-  //       context.read<ActivityLogBloc>().add(LoadMoreActivityLogs());
-  //     }
-  //   }
-  // }
 
   @override
   Widget build(BuildContext context) {
@@ -88,7 +74,6 @@ class _ActivityLogsScreenState extends State<ActivityLogsScreen> {
               context.read<ActivityLogBloc>().add(RefreshActivityLogs());
             },
             child: ListView.builder(
-              controller: _scrollController,
               padding: const EdgeInsets.all(16),
               itemCount:
                   state.activityLogs.length +

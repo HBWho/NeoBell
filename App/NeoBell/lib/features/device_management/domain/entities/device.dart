@@ -6,27 +6,23 @@ class Device extends Equatable {
   final String deviceFriendlyName;
   final String roleOnDevice;
   final String status;
-  final DateTime lastSeen;
   final String? firmwareVersion;
   final String? ownerUserId;
   final DateTime? registeredAt;
-  final NetworkInfo? networkInfo;
-  final List<DeviceUser>? users; // Nova propriedade para cache de usuários
+  final List<DeviceUser>? users;
 
   const Device({
     required this.sbcId,
     required this.deviceFriendlyName,
     required this.roleOnDevice,
     required this.status,
-    required this.lastSeen,
     this.firmwareVersion,
     this.ownerUserId,
     this.registeredAt,
-    this.networkInfo,
     this.users,
   });
 
-  bool get isOnline => status.toLowerCase() == 'online';
+  bool get isActive => status.toLowerCase() == 'active';
   bool get isOwner => roleOnDevice.toLowerCase() == 'owner';
 
   // Método para criar uma cópia com usuários atualizados
@@ -35,12 +31,10 @@ class Device extends Equatable {
       sbcId: sbcId,
       deviceFriendlyName: deviceFriendlyName,
       roleOnDevice: roleOnDevice,
-      status: status,
-      lastSeen: lastSeen,
       firmwareVersion: firmwareVersion,
+      status: status,
       ownerUserId: ownerUserId,
       registeredAt: registeredAt,
-      networkInfo: networkInfo,
       users: users,
     );
   }
@@ -50,11 +44,9 @@ class Device extends Equatable {
     String? deviceFriendlyName,
     String? roleOnDevice,
     String? status,
-    DateTime? lastSeen,
     String? firmwareVersion,
     String? ownerUserId,
     DateTime? registeredAt,
-    NetworkInfo? networkInfo,
     List<DeviceUser>? users,
   }) {
     return Device(
@@ -62,11 +54,9 @@ class Device extends Equatable {
       deviceFriendlyName: deviceFriendlyName ?? this.deviceFriendlyName,
       roleOnDevice: roleOnDevice ?? this.roleOnDevice,
       status: status ?? this.status,
-      lastSeen: lastSeen ?? this.lastSeen,
       firmwareVersion: firmwareVersion ?? this.firmwareVersion,
       ownerUserId: ownerUserId ?? this.ownerUserId,
       registeredAt: registeredAt ?? this.registeredAt,
-      networkInfo: networkInfo ?? this.networkInfo,
       users: users ?? this.users,
     );
   }
@@ -76,23 +66,10 @@ class Device extends Equatable {
     sbcId,
     deviceFriendlyName,
     roleOnDevice,
-    status,
-    lastSeen,
     firmwareVersion,
+    status,
     ownerUserId,
     registeredAt,
-    networkInfo,
     users,
   ];
-}
-
-class NetworkInfo extends Equatable {
-  final String? ipAddress;
-  final String? wifiSsid;
-  final int? signalStrength;
-
-  const NetworkInfo({this.ipAddress, this.wifiSsid, this.signalStrength});
-
-  @override
-  List<Object?> get props => [ipAddress, wifiSsid, signalStrength];
 }

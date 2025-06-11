@@ -107,10 +107,6 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> {
               children: [
                 _buildDeviceInfoCard(device, state),
                 const SizedBox(height: 16),
-                if (device.networkInfo != null) ...[
-                  _buildNetworkInfoCard(device.networkInfo!),
-                  const SizedBox(height: 16),
-                ],
                 _buildUsersSection(device, state),
               ],
             ),
@@ -151,7 +147,7 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: device.isOnline ? Colors.green : Colors.grey,
+                    color: device.isActive ? Colors.green : Colors.grey,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
@@ -196,7 +192,7 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> {
                             ),
                             decoration: BoxDecoration(
                               color:
-                                  device.isOnline ? Colors.green : Colors.grey,
+                                  device.isActive ? Colors.green : Colors.grey,
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Text(
@@ -245,34 +241,6 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> {
               _buildInfoRow('Firmware Version', device.firmwareVersion!),
             if (device.registeredAt != null)
               _buildInfoRow('Registered At', _formatDate(device.registeredAt!)),
-            _buildInfoRow('Last Seen', _formatDate(device.lastSeen)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNetworkInfoCard(NetworkInfo networkInfo) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Network Information',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            if (networkInfo.ipAddress != null)
-              _buildInfoRow('Endereço IP', networkInfo.ipAddress!),
-            if (networkInfo.wifiSsid != null)
-              _buildInfoRow('Rede Wi-Fi', networkInfo.wifiSsid!),
-            if (networkInfo.signalStrength != null)
-              _buildInfoRow(
-                'Signal Strength',
-                '${networkInfo.signalStrength} dBm',
-              ),
           ],
         ),
       ),

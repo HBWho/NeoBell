@@ -1,3 +1,4 @@
+import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -19,6 +20,7 @@ class WatchVideoScreen extends StatefulWidget {
 
 class _WatchVideoScreenState extends State<WatchVideoScreen> {
   VideoPlayerController? _controller;
+  ChewieController? _chewieController;
   bool _isInitialized = false;
   bool _isLoading = true;
   String? _errorMessage;
@@ -66,11 +68,21 @@ class _WatchVideoScreenState extends State<WatchVideoScreen> {
           .initialize()
           .then((_) {
             if (mounted) {
+              _chewieController = ChewieController(
+                videoPlayerController: _controller!,
+                autoPlay: true,
+                looping: true,
+                showControlsOnInitialize: false,
+                hideControlsTimer: const Duration(
+                  seconds: 1,
+                  milliseconds: 500,
+                ),
+              );
               setState(() {
                 _isInitialized = true;
                 _isLoading = false;
               });
-              _controller!.play();
+              // _controller!.play();
             }
           })
           .catchError((error) {
@@ -93,6 +105,7 @@ class _WatchVideoScreenState extends State<WatchVideoScreen> {
   @override
   void dispose() {
     _controller?.dispose();
+    _chewieController?.dispose();
     super.dispose();
   }
 
@@ -159,7 +172,7 @@ class _WatchVideoScreenState extends State<WatchVideoScreen> {
       );
     }
 
-    if (!_isInitialized || _controller == null) {
+    if (!_isInitialized || _controller == null || _chewieController == null) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -214,12 +227,7 @@ class _WatchVideoScreenState extends State<WatchVideoScreen> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Stack(
-                        children: [
-                          VideoPlayer(_controller!),
-                          _buildVideoControls(),
-                        ],
-                      ),
+                      child: Chewie(controller: _chewieController!),
                     ),
                   );
                 },
@@ -280,43 +288,6 @@ class _WatchVideoScreenState extends State<WatchVideoScreen> {
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildVideoControls() {
-    return Positioned.fill(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            if (_controller!.value.isPlaying) {
-              _controller!.pause();
-            } else {
-              _controller!.play();
-            }
-          });
-        },
-        child: Container(
-          color: Colors.transparent,
-          child: Center(
-            child: AnimatedOpacity(
-              opacity: _controller!.value.isPlaying ? 0.0 : 0.8,
-              duration: const Duration(milliseconds: 300),
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
-                ),
-                padding: const EdgeInsets.all(16),
-                child: Icon(
-                  _controller!.value.isPlaying ? Icons.pause : Icons.play_arrow,
-                  color: Colors.white,
-                  size: 48,
-                ),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

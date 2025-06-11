@@ -32,7 +32,7 @@ class DeviceItem extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: device.isOnline ? Colors.green : Colors.grey,
+                      color: device.isActive ? Colors.green : Colors.grey,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(Icons.doorbell, color: Colors.white, size: 24),
@@ -59,7 +59,7 @@ class DeviceItem extends StatelessWidget {
                               ),
                               decoration: BoxDecoration(
                                 color:
-                                    device.isOnline
+                                    device.isActive
                                         ? Colors.green
                                         : Colors.grey,
                                 borderRadius: BorderRadius.circular(12),
@@ -140,16 +140,6 @@ class DeviceItem extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Last seen: ${_formatLastSeen(device.lastSeen)}',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                  ),
-                ],
-              ),
               if (device.firmwareVersion != null) ...[
                 const SizedBox(height: 4),
                 Row(
@@ -168,20 +158,5 @@ class DeviceItem extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _formatLastSeen(DateTime lastSeen) {
-    final now = DateTime.now();
-    final difference = now.difference(lastSeen);
-
-    if (difference.inMinutes < 1) {
-      return 'Just now';
-    } else if (difference.inHours < 1) {
-      return '${difference.inMinutes} min ago';
-    } else if (difference.inDays < 1) {
-      return '${difference.inHours}h ago';
-    } else {
-      return '${difference.inDays}d ago';
-    }
   }
 }

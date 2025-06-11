@@ -22,13 +22,11 @@ class PackageDeliveriesScreen extends StatefulWidget {
 }
 
 class _PackageDeliveriesScreenState extends State<PackageDeliveriesScreen> {
-  final ScrollController _scrollController = ScrollController();
   PackageDeliveryFilter? _currentFilter;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
     _initializePackageDeliveries();
   }
 
@@ -41,23 +39,7 @@ class _PackageDeliveriesScreenState extends State<PackageDeliveriesScreen> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
     super.dispose();
-  }
-
-  void _onScroll() {
-    if (_isBottom) {
-      context.read<PackageDeliveryBloc>().add(
-        const LoadMorePackageDeliveries(),
-      );
-    }
-  }
-
-  bool get _isBottom {
-    if (!_scrollController.hasClients) return false;
-    final maxScroll = _scrollController.position.maxScrollExtent;
-    final currentScroll = _scrollController.offset;
-    return currentScroll >= (maxScroll * 0.9);
   }
 
   @override
@@ -67,12 +49,16 @@ class _PackageDeliveriesScreenState extends State<PackageDeliveriesScreen> {
         title: const Text('Package Deliveries'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: _showFilterDialog,
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              context.read<PackageDeliveryBloc>().add(
+                const RefreshPackageDeliveries(),
+              );
+            },
           ),
           IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _showAddDeliveryDialog,
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterDialog,
           ),
         ],
       ),
@@ -155,18 +141,17 @@ class _PackageDeliveriesScreenState extends State<PackageDeliveriesScreen> {
             );
           }
 
-          return RefreshIndicator(
-            onRefresh: () async {
-              context.read<PackageDeliveryBloc>().add(
-                const RefreshPackageDeliveries(),
-              );
-            },
-            child: Column(
-              children: [
-                if (hasFilter) _buildFilterChips(),
-                Expanded(
+          return Column(
+            children: [
+              if (hasFilter) _buildFilterChips(),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    context.read<PackageDeliveryBloc>().add(
+                      const RefreshPackageDeliveries(),
+                    );
+                  },
                   child: ListView.builder(
-                    controller: _scrollController,
                     itemCount:
                         state.deliveries.length +
                         (state is PackageDeliveryLoadingMore ? 1 : 0),
@@ -195,8 +180,8 @@ class _PackageDeliveriesScreenState extends State<PackageDeliveriesScreen> {
                     },
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           );
         },
       ),

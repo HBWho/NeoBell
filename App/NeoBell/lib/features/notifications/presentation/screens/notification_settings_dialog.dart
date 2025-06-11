@@ -20,12 +20,15 @@ class _NotificationSettingsDialogState
   String firebaseToken = '';
 
   Future<void> _openChannelSettings(
-      BuildContext context, String channelId) async {
+    BuildContext context,
+    String channelId,
+  ) async {
     try {
-      await const MethodChannel('neobell/notifications')
-          .invokeMethod('openChannelSettings', {'channelId': channelId});
+      await const MethodChannel(
+        'neobell/notifications',
+      ).invokeMethod('openChannelSettings', {'channelId': channelId});
     } catch (e) {
-      _logger.e("Erro ao abrir configurações do canal: $e");
+      _logger.e("Error opening channel settings: $e");
     }
   }
 
@@ -61,20 +64,22 @@ class _NotificationSettingsDialogState
                     children: [
                       IconButton(
                         icon: const Icon(Icons.notifications),
-                        tooltip: 'Enviar Notificação de Teste',
-                        onPressed: () =>
-                            context.read<NotificationCubit>().showNotification(
-                                  title: 'Teste: ${channel.name}',
+                        tooltip: 'Send Test Notification',
+                        onPressed:
+                            () => context
+                                .read<NotificationCubit>()
+                                .showNotification(
+                                  title: 'Test: ${channel.name}',
                                   body:
-                                      'Essa é uma notificação teste do canal para: ${channel.description}',
+                                      'This is a test notification for: ${channel.description}',
                                   channel: channel,
                                 ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.settings),
-                        tooltip: 'Configurações Avançadas do Canal',
-                        onPressed: () =>
-                            _openChannelSettings(context, channel.id),
+                        tooltip: 'Advanced Channel Settings',
+                        onPressed:
+                            () => _openChannelSettings(context, channel.id),
                       ),
                     ],
                   )
@@ -84,20 +89,22 @@ class _NotificationSettingsDialogState
                     children: [
                       IconButton(
                         icon: const Icon(Icons.notifications),
-                        tooltip: 'Enviar Notificação de Teste',
-                        onPressed: () =>
-                            context.read<NotificationCubit>().showNotification(
-                                  title: 'Teste ${channel.name}',
+                        tooltip: 'Send Test Notification',
+                        onPressed:
+                            () => context
+                                .read<NotificationCubit>()
+                                .showNotification(
+                                  title: 'Test ${channel.name}',
                                   body:
-                                      'Essa é uma notificação teste do canal para: ${channel.description}',
+                                      'This is a test notification for: ${channel.description}',
                                   channel: channel,
                                 ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.settings),
-                        tooltip: 'Configurações Avançadas do Canal',
-                        onPressed: () =>
-                            _openChannelSettings(context, channel.id),
+                        tooltip: 'Advanced Channel Settings',
+                        onPressed:
+                            () => _openChannelSettings(context, channel.id),
                       ),
                     ],
                   ),
@@ -116,7 +123,7 @@ class _NotificationSettingsDialogState
         if (state is NotificationError) {
           showSnackBar(
             context,
-            message: 'Erro: ${state.message}',
+            message: 'Error: ${state.message}',
             isError: true,
           );
         }
@@ -144,17 +151,21 @@ class _NotificationSettingsDialogState
                   const Divider(),
                   TextButton(
                     onPressed: _openNotificationSettings,
-                    child: const Text('Configurações Avançadas do Sistema'),
+                    child: const Text('Advanced System Settings'),
                   ),
                   TextButton(
-                    onPressed: () => context
-                        .read<NotificationCubit>()
-                        .getFirebaseToken()
-                        .then((value) {
-                      setState(
-                          () => firebaseToken = value ?? 'Erro ao obter token');
-                    }),
-                    child: const Text('Pegar Token do Firebase'),
+                    onPressed:
+                        () => context
+                            .read<NotificationCubit>()
+                            .getFirebaseToken()
+                            .then((value) {
+                              setState(
+                                () =>
+                                    firebaseToken =
+                                        value ?? 'Error obtaining token',
+                              );
+                            }),
+                    child: const Text('Get Firebase Token'),
                   ),
                   if (firebaseToken.isNotEmpty)
                     Padding(
@@ -165,14 +176,17 @@ class _NotificationSettingsDialogState
                             const TextSpan(text: 'Firebase Token: '),
                             TextSpan(
                               text: firebaseToken,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
                         textAlign: TextAlign.center,
-                        onTap: () => Clipboard.setData(
-                            ClipboardData(text: firebaseToken)),
+                        onTap:
+                            () => Clipboard.setData(
+                              ClipboardData(text: firebaseToken),
+                            ),
                       ),
                     ),
                 ],
