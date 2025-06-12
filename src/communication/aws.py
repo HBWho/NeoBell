@@ -236,9 +236,9 @@ def testar_cadastro_novo_visitante(visitor_name, permission):
         return None
     logger.info("--- FIM TESTE: Cadastrar Novo Visitante ---\n")
 
-def testar_envio_mensagem_video(face_id_visitante):
+def testar_envio_mensagem_video(video_path, face_id_visitante):
     logger.info(f"\n--- INICIANDO TESTE: Envio de Mensagem de Vídeo (Visitante: {face_id_visitante}) ---")
-    video_file = "data/dog_video.mp4"
+    video_file = video_path
     
     payload = {
         "visitor_face_tag_id": face_id_visitante,
@@ -352,18 +352,19 @@ if __name__ == '__main__':
     try:
         # --- COMENTE/DESCOMENTE AS LINHAS ABAIXO PARA ATIVAR/DESATIVAR TESTES ---
 
-        visitor_face_tag = "634eaa37-5728-451a-8df4-7008bb14a3a9"  # Variável para armazenar o face_tag_id do visitante cadastrado
+        visitor_face_tag = "3a822d5d-bebc-4b10-8ab5-6f070a028b70"
         
         # PRA VERIFICAR SE TEM CADASTRO BASTA CHAMAR A FUNCAO 3
 
         # Teste 1: Cadastrar um novo visitante 
         # VISITANTE -> REC. FACIAL -> NAO TEM CADASTRO -> FAZ O CADASTRO + CHAMA FUNCAO ABAIXO
-        # visitor_face_tag = testar_cadastro_novo_visitante(visitor_name="Visitante", permission="Allowed")
+        # visitor_face_tag = testar_cadastro_novo_visitante(visitor_name="Gabriel", permission="Allowed")
         # time.sleep(2)
 
         # Teste 2: Enviar uma mensagem de vídeo (use um face_id que você sabe que tem permissão "Allowed")
         # VISITANTE -> REC. FACIAL -> TEM CADASTRO -> GRAVA VIDEO + CHAMA FUNCAO
         # testar_envio_mensagem_video(face_id_visitante=visitor_face_tag)
+        testar_envio_mensagem_video("temp_video.avi", face_id_visitante=visitor_face_tag)
         # time.sleep(2)
         
         # Teste 3: Verificar permissão de um visitante existente

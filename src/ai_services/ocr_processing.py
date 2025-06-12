@@ -13,7 +13,7 @@ class DecodedData:
     data: str
     rect: Optional[object] = None
 
-class OCRProcessing:
+class OCRProcessing():
     def __init__(self):
         self.qreader = QReader()
 
@@ -78,10 +78,10 @@ class OCRProcessing:
         
         return (False, "Desconhecido")
 
-    def take_picture(self) -> bool:
+    def take_picture(self, camera_id) -> bool:
         """Capture image from camera and save to temp file"""
         print("Taking picture...")
-        cam = cv2.VideoCapture(0)
+        cam = cv2.VideoCapture(camera_id)
         
         try:
             cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
@@ -148,20 +148,26 @@ class OCRProcessing:
         dm_codes = self.read_datamatrix(img_path)
 
         all_codes = qr_codes + dm_codes
+        # all_codes = qr_codes
 
         if not all_codes:
             print("No codes found in the image")
             return
-
+        
+        valid_codes = []
         print("\nFound codes:")
         for code_obj in all_codes:
             code = code_obj.data.strip()
             valid, carrier = self.find_pattern(code)
+            valid = True
 
+            valid_codes.append(code)
             print(f"\nCode: {code}")
             print(f"Type: {'QR Code' if code_obj in qr_codes else 'DataMatrix'}")
             print(f"Valid: {'Yes' if valid else 'No'}")
             print(f"Carrier: {carrier}")
+
+        return valid_codes
 
 if __name__ == "__main__":
     ocrp = OCRProcessing()
