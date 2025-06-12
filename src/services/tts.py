@@ -1,7 +1,7 @@
 import subprocess
 import os
 
-class TTSService:
+class TTSService():
     def __init__(self, engine_path=None, lang="en"):
         self.engine_path = engine_path
         self.lang_code = lang # For espeak-ng -v option
