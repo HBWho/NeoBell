@@ -1,10 +1,12 @@
 import cv2
 import re
+import logging
 from typing import List, Tuple, Union, Optional
 from dataclasses import dataclass
-
 from qreader import QReader # QRCode
 from pylibdmtx.pylibdmtx import decode as DMReader # DataMatrix
+
+logger = logging.getLogger(__name__)
 
 TEMP_IMAGE = "temp_image.jpg"
 
@@ -80,7 +82,7 @@ class OCRProcessing():
 
     def take_picture(self, camera_id) -> bool:
         """Capture image from camera and save to temp file"""
-        print("Taking picture...")
+        logger.info("Taking picture...")
         cam = cv2.VideoCapture(camera_id)
         
         try:
@@ -93,14 +95,14 @@ class OCRProcessing():
             cv2.imwrite(TEMP_IMAGE, image)
             return True
         except Exception as e:
-            print(f"Error capturing image: {e}")
+            logger.error(f"Error capturing image: {e}")
             return False
         finally:
             cam.release()
 
     def read_qrcode(self, img_path: str) -> List[DecodedData]:
         """Read all QR codes from image"""
-        print("Trying to read QRcode...")
+        logger.info("Trying to read QRcode...")
         try:
             img = cv2.imread(img_path)
             if img is None:
@@ -115,12 +117,12 @@ class OCRProcessing():
 
             return results
         except Exception as e:
-            print(f"Error reading QRCode: {e}")
+            logger.error(f"Error reading QRCode: {e}")
             return []
 
     def read_datamatrix(self, img_path: str) -> List[DecodedData]:
         """Read all DataMatrix codes from image"""
-        print(f"Trying to read DataMatrix...")
+        logger.info(f"Trying to read DataMatrix...")
         try:
             img = cv2.imread(img_path)
             if img is None:
@@ -138,12 +140,12 @@ class OCRProcessing():
 
             return results
         except Exception as e:
-            print(f"Error reading DataMatrix: {e}")
+            logger.error(f"Error reading DataMatrix: {e}")
             return []
 
     def process_codes(self, img_path: str = TEMP_IMAGE) -> None:
         """Main processing function that reads codes and validates them"""
-        print(f"Processing codes...")
+        logger.info(f"Processing codes...")
         qr_codes = self.read_qrcode(img_path)
         dm_codes = self.read_datamatrix(img_path)
 
@@ -151,21 +153,21 @@ class OCRProcessing():
         # all_codes = qr_codes
 
         if not all_codes:
-            print("No codes found in the image")
+            logger.warning("No codes found in the image")
             return
         
         valid_codes = []
-        print("\nFound codes:")
+        logger.info("\nFound codes:")
         for code_obj in all_codes:
             code = code_obj.data.strip()
             valid, carrier = self.find_pattern(code)
             valid = True
 
             valid_codes.append(code)
-            print(f"\nCode: {code}")
-            print(f"Type: {'QR Code' if code_obj in qr_codes else 'DataMatrix'}")
-            print(f"Valid: {'Yes' if valid else 'No'}")
-            print(f"Carrier: {carrier}")
+            logger.info(f"\nCode: {code}")
+            logger.info(f"Type: {'QR Code' if code_obj in qr_codes else 'DataMatrix'}")
+            logger.info(f"Valid: {'Yes' if valid else 'No'}")
+            logger.info(f"Carrier: {carrier}")
 
         return valid_codes
 

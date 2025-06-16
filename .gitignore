@@ -7,3 +7,4 @@ models/
 face_db/
 data/
 certifications/
+app.log

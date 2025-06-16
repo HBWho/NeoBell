@@ -1,99 +1,117 @@
+import os
 import time
-from services.stt import *
-from services.tts import *
-from services.api import *
-from communication.aws import *
-from hal.gpio import *
-from hal.servo import *
-from hal.pin import *
-from ai_services.ocr_processing import *
-from ai_services.face_processing import *
+import logging
 
-# model_path = "models/vosk-model-en-us-0.22"
-model_path = "models/vosk-model-small-en-us-0.15"
+from config.logging_config import setup_logging
+setup_logging()
 
-gapi = GAPI(debug_mode=True) 
-stt = STTService(model_path=model_path, device_id=1)
-tts = TTSService()
-ocrp = OCRProcessing()
-facereg = FaceProcessing()
-servo = ServoClass()
+from services.stt import STTService
+from services.tts import TTSService
+from services.api import GAPI
+from ai_services.face_processing import FaceProcessing
+from communication.aws_client import AwsIotClient
+from flows.visitor_flow import VisitorFlow
+from flows.delivery_flow import DeliveryFlow
 
-print("Loading model...")
-stt.load_model()
-print("Model loaded!")
+logger = logging.getLogger(__name__)
 
-try:
-    PINService = PINService()
-    PINService.activate_red()
+class Orchestrator:
+    """
+    The main application class that initializes all services, handlers,
+    and orchestrates the primary user interaction flow.
+    """
+    def __init__(self):
+        """Initializes services and starts the application lifecycle."""
+        try:
+            logger.info("Orchestrator starting up...")
+            self._load_config()
+            self._init_services()
 
-    PINService.activate_collect_lock()
-    time.sleep(5)
-    PINService.deactivate_collect_lock()
-    raise Exception("")
-    
-    # PINService.deactivate_internal_lock()
-    # PINService.deactivate_external_lock()
+            with AwsIotClient(self.sbc_id, self.endpoint, self.port, self.cert_path, self.key_path, self.ca_path) as aws_client:
+                self._init_flow_handlers(aws_client)
+                self.run_interaction_loop()
 
-    tts.speak("Hello. I am Neobell, are you here to deliver a package or leave a message for the resident?")
-    text = stt.transcribe_audio(duration_seconds=5)
-    print(f"text: {text}")
-    intent = gapi.get_initial_intent(text).value
-    print(f"intent: {intent:}")
-    
-    if intent == "VISITOR_MESSAGE":
-        tts.speak("Ok. Please, keep your face close to the camera in a visible way. Photo will be taken in 3, 2, 1.")
-        valid, name = facereg.recognize_face(0, "data/known_faces_db")
-        if valid:
-            tts.speak(f"Hello {name}. Stand in front of the camera. Your video will be recorded in 3, 2, 1.")
-            facereg.record_video(0)
-            # record video
-            
-            visitor_face_tag = "634eaa37-5728-451a-8df4-7008bb14a3a9"
-            testar_envio_mensagem_video("temp_video.avi", face_id_visitante=visitor_face_tag)
-            tts.speak(f"Your video was registered and sent for the resident. Thank you and have a nice day!")
+        except Exception as e:
+            logger.critical("A critical error occurred during Orchestrator initialization.", exc_info=True)
+            if hasattr(self, 'tts_service'):
+                self.tts_service.speak("A critical system error occurred. Shutting down.")
 
-    elif intent == "PACKAGE_DELIVERY":
-        tts.speak("Ok. Show the QR Code of the package in front of this camera. Please, center the QR Code in the camera. Photo will be taken in 3, 2, 1. Photo taken.")
-        ocrp.take_picture(0) # 0 for external camera
-        # codes = ocrp.process_codes("temp_image.jpg")
-        # if codes:
-        time.sleep(4)
-        tts.speak("Packaged verified. Please, deliver the package inside the compartment with the QR code facing up.")
-        PINService.deactivate_red()
-        time.sleep(1)
-        PINService.activate_green()
-        time.sleep(1)
-        PINService.activate_external_lock() 
-        time.sleep(1)
-        PINService.activate_internal_led()
-        time.sleep(6)
-        tts.speak("The package will be verified soon.")
-        PINService.deactivate_external_lock()
-        # verificacao de pacote
-        ocrp.take_picture(2) # 0 for external camera
-        # codes = ocrp.process_codes("")
-        time.sleep(6)
-        servo.servopadrao()
-        time.sleep(2)
-        tts.speak("Package validated! Thank you and have a nice day")
-        
-        # time.sleep(3)
-        # print("Passa a Tag em:")
-        # print("3")
-        # print("2")
-        # print("1")
-        # PINService.activate_collect_lock()
+    def _load_config(self):
+        """Loads all necessary configuration from environment variables."""
+        logger.info("Loading configuration from environment variables...")
+        self.sbc_id = os.getenv("CLIENT_ID")
+        self.endpoint = os.getenv("AWS_IOT_ENDPOINT")
+        self.port = os.getenv("PORT")
+        self.model_path = "models/vosk-model-small-en-us-0.15"
+        self.cert_path = "certifications/10da83970c7ac9793d1f4c33c48f082924dc1aaccd0e8e8fd229d13b5caa210e-certificate.pem.crt"
+        self.key_path = "certifications/10da83970c7ac9793d1f4c33c48f082924dc1aaccd0e8e8fd229d13b5caa210e-private.pem.key"
+        self.ca_path = "certifications/AmazonRootCA1.pem"
 
-    else:
-        tts.speak("I didnt catch it. Are you here to deliver a package or leave a message?")
+    def _init_services(self):
+        """Initializes singleton services used across the application."""
+        logger.info("Initializing core services (TTS, STT, etc.)...")
+        self.gapi_service = GAPI(debug_mode=True)
+        self.stt_service = STTService(model_path=self.model_path, device_id=1)
+        self.tts_service = TTSService()
+        self.face_processor = FaceProcessing()
+        self.gpio_service = None # Placeholder for GpioService
 
-    # ocrp.take_picture(2) # 2 for internal camera
-    # ocrp.process_codes("temp_image.jpg")
-finally:
-    # PINService.deactivate_red()
-    PINService.deactivate_green()
-    PINService.deactivate_external_lock() 
-    PINService.deactivate_internal_lock()
-    PINService.deactivate_collect_lock()
-    # deactivate_pin(4, 2)
+    def _init_flow_handlers(self, aws_client):
+        """Initializes the specific flow handlers, injecting dependencies."""
+        logger.info("Initializing flow handlers (Visitor, Delivery)...")
+        # A dictionary of common services to pass to each flow handler
+        common_services = {
+            "aws_client": aws_client,
+            "gpio_service": self.gpio_service,
+            "tts_service": self.tts_service,
+            "stt_service": self.stt_service,
+            "gapi_service": self.gapi_service,
+            "face_processor": self.face_processor
+        }
+        self.visitor_handler = VisitorFlow(**common_services)
+        self.delivery_handler = DeliveryFlow(**common_services)
+
+    def run_interaction_loop(self):
+        """
+        Runs the main interaction loop, asking the user for their intent
+        and dispatching to the correct flow handler.
+        """
+        logger.info("System ready. Starting main interaction loop.")
+        while True:
+            try:
+                self.tts_service.speak("Hello. I am Neobell. Are you here to deliver a package or to leave a message?")
+                text = self.stt_service.transcribe_audio(duration_seconds=7)
+
+                if not text:
+                    self.tts_service.speak("I'm sorry, I didn't hear anything. Let's try again.")
+                    time.sleep(1)
+                    continue
+
+                logger.info(f"User transcription: '{text}'")
+                intent = self.gapi_service.get_initial_intent(text).value
+                logger.info(f"Detected intent: '{intent}'")
+
+                if intent == "VISITOR_MESSAGE":
+                    self.visitor_handler.start_interaction()
+                elif intent == "PACKAGE_DELIVERY":
+                    self.delivery_handler.start_delivery_process()
+                else:
+                    self.tts_service.speak("I'm sorry, I didn't understand. Please say 'delivery' or 'message'.")
+
+                logger.info("Flow finished. Returning to idle state in 5 seconds...")
+                time.sleep(5)
+
+            except KeyboardInterrupt:
+                logger.info("User interrupted the loop. Shutting down.")
+                break
+            except Exception as e:
+                logger.error("An error occurred during the interaction loop.", exc_info=True)
+                self.tts_service.speak("An unexpected error occurred. Restarting interaction.")
+                time.sleep(2)
+
+def main():
+    Orchestrator()
+    logger.info("System has shut down.")
+
+if __name__ == "__main__":
+    main()

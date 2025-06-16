@@ -1,8 +1,11 @@
 import google.generativeai as genai
-from dotenv import load_dotenv
 import os
+import logging
+from dotenv import load_dotenv
 from enum import Enum
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 class Intent(Enum):
     PACKAGE = "PACKAGE_DELIVERY"
@@ -35,7 +38,7 @@ class GAPI:
                 system_instruction=self.DEFAULT_SYSTEM_PROMPT
             )
         except Exception as e:
-            print(f"Gemini initialization failed: {e}")
+            logger.error(f"Gemini initialization failed: {e}")
             return None
 
     def get_initial_intent(self, user_reply_text: str) -> Intent:
@@ -55,5 +58,5 @@ class GAPI:
             return Intent(intent) if intent in Intent._value2member_map_ else Intent.UNCLEAR
         except Exception as e:
             if self.debug_mode:
-                print(f"API Error: {e}")
+                logger.error(f"API Error: {e}")
             return Intent.ERROR_API

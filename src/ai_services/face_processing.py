@@ -4,10 +4,12 @@ import pandas as pd
 import sounddevice as sd
 import numpy as np
 import threading
-
+import logging
 from deepface import DeepFace
 from pathlib import Path
-from ffmpeg import input as ffmpeg_input, output as ffmpeg_output, run as ffmpeg_run
+# from ffmpeg import input as ffmpeg_input, output as ffmpeg_output, run as ffmpeg_run
+
+logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT = Path.cwd().parent
 DATA_DIR = _PROJECT_ROOT / "data"
@@ -23,7 +25,7 @@ class FaceProcessing():
     def __init__(self):
         pass
 
-    def take_picture(self, camera_id):
+    def take_picture(self, camera_id, filename = TEMP_IMAGE):
         cam = cv2.VideoCapture(camera_id)
 
         try:
@@ -33,7 +35,7 @@ class FaceProcessing():
 
             if not result:
                 raise ValueError("Failed to capture image from camera")
-            cv2.imwrite(TEMP_IMAGE, image)
+            cv2.imwrite(filename, image)
         finally:
             cam.release()
 
@@ -50,12 +52,12 @@ class FaceProcessing():
         
         start_time = time.time()
         
-        print("Recording for 10 seconds...")
+        logger.info("Recording for 10 seconds...")
         
         while True:
             ret, frame = cap.read()
             if not ret:
-                print("Error: Could not read frame")
+                logger.error("Error: Could not read frame")
                 break
                 
             # Write the frame to the output file
@@ -76,7 +78,7 @@ class FaceProcessing():
         cap.release()
         out.release()
         # cv2.destroyAllWindows()
-        print(f"Video saved as {TEMP_VIDEO}")
+        logger.info(f"Video saved as {TEMP_VIDEO}")
         
     def process_results(self, dfs):
         results = []
@@ -90,8 +92,8 @@ class FaceProcessing():
                 results.append(df[['person', 'distance']])
         
         if not results:
-            print("No matches found below threshold")
-            return 0, "Unknown"
+            logger.warning("No matches found below threshold")
+            return 0, "Unknown", "Unknown"
         
         all_results = pd.concat(results)
 
@@ -101,17 +103,18 @@ class FaceProcessing():
         best_person = str(best_match['person'])
         best_distance = float(best_match['distance'])
 
-        print(f"Best Match: {best_person} (Distance: {best_distance:.3f})")
-        return 1, f"{best_person}"
-        # print("\nAll Valid Matches:")
-        # print(all_results.sort_values('distance').to_string())
+        logger.info(f"Best Match: {best_person} (Distance: {best_distance:.3f})")
+        # TODO
+        return 1, f"{best_person}", "123"
+        # logger.info("\nAll Valid Matches:")
+        # logger.info(all_results.sort_values('distance').to_string())
 
     def recognize_face(self, camera_id, db_path):
-        print(f"Using face database at: {KNOWN_FACES_DB_DIR}")
-        print("Taking a picture...")
+        logger.info(f"Using face database at: {KNOWN_FACES_DB_DIR}")
+        logger.info("Taking a picture...")
         self.take_picture(camera_id)
 
-        print("Analyzing face...")
+        logger.info("Analyzing face...")
         try:
             dfs = DeepFace.find(
                 img_path = TEMP_IMAGE, 
@@ -120,10 +123,10 @@ class FaceProcessing():
                 detector_backend = DETECTOR,
                 enforce_detection = True,
                 distance_metric = 'cosine')
-            a, b = self.process_results(dfs)
-            return a, b
+            a, b, c = self.process_results(dfs)
+            return a, b, c
         except Exception as e:
-            print(f"Error: {e}")
+            logger.error(f"Error: {e}")
         finally:
             if Path(TEMP_IMAGE).exists():
                 Path(TEMP_IMAGE).unlink()
