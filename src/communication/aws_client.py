@@ -192,12 +192,11 @@ class AwsIotClient:
 
     # --- Public API Methods (High-Level Business Logic) ---
 
-    def register_visitor(self, image_path, visitor_name, permission_level):
+    def register_visitor(self, image_path, visitor_name, user_id, permission_level):
         """Requests a URL to register a new visitor and uploads their image."""
         logger.info(f"Registering new visitor '{visitor_name}' with permission '{permission_level}'.")
-        face_tag_id = str(uuid.uuid4())
         payload = {
-            "face_tag_id": face_tag_id,
+            "face_tag_id": user_id,
             "visitor_name": visitor_name,
             "permission_level": permission_level
         }
@@ -205,11 +204,11 @@ class AwsIotClient:
         
         if response and "presigned_url" in response:
             if self._upload_to_s3(response["presigned_url"], image_path, response.get("required_metadata_headers"), 'image/jpeg'):
-                return face_tag_id
+                return user_id
         logger.error("Failed to complete visitor registration.")
         return None
 
-    def send_video_message(self, video_path, visitor_face_tag_id, duration_sec=30):
+    def send_video_message(self, video_path, visitor_face_tag_id, duration_sec):
         """Requests a URL to send a video message and uploads the video."""
         logger.info(f"Sending video message for visitor '{visitor_face_tag_id}'.")
         payload = {"visitor_face_tag_id": visitor_face_tag_id, "duration_sec": str(duration_sec)}

@@ -1,13 +1,15 @@
 import os
 import time
 import logging
-
+from pathlib import Path
 from config.logging_config import setup_logging
+
 setup_logging()
 
 from services.stt import STTService
 from services.tts import TTSService
 from services.api import GAPI
+from services.user_manager import UserManager
 from ai_services.face_processing import FaceProcessing
 from communication.aws_client import AwsIotClient
 from flows.visitor_flow import VisitorFlow
@@ -50,8 +52,10 @@ class Orchestrator:
     def _init_services(self):
         """Initializes singleton services used across the application."""
         logger.info("Initializing core services (TTS, STT, etc.)...")
+        user_db_file = Path.cwd() / "data" / "users.json"
+        self.user_manager = UserManager(db_path=user_db_file)
         self.gapi_service = GAPI(debug_mode=True)
-        self.stt_service = STTService(model_path=self.model_path, device_id=1)
+        self.stt_service = STTService(model_path=self.model_path, device_id=2)
         self.tts_service = TTSService()
         self.face_processor = FaceProcessing()
         self.gpio_service = None # Placeholder for GpioService
@@ -62,6 +66,7 @@ class Orchestrator:
         # A dictionary of common services to pass to each flow handler
         common_services = {
             "aws_client": aws_client,
+            "user_manager": self.user_manager,
             "gpio_service": self.gpio_service,
             "tts_service": self.tts_service,
             "stt_service": self.stt_service,
@@ -81,6 +86,7 @@ class Orchestrator:
             try:
                 self.tts_service.speak("Hello. I am Neobell. Are you here to deliver a package or to leave a message?")
                 text = self.stt_service.transcribe_audio(duration_seconds=7)
+                logger.info(f"Text said by user: {text}")
 
                 if not text:
                     self.tts_service.speak("I'm sorry, I didn't hear anything. Let's try again.")

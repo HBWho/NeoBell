@@ -1,5 +1,5 @@
 class DeliveryFlow:
-    def __init__(self):
+    def __init__(self, aws_client, user_manager, gpio_service, tts_service, stt_service, face_processor, gapi_service):
         pass
 
 """
