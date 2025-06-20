@@ -1,3 +1,4 @@
+
 from vosk import Model, KaldiRecognizer
 import json
 import numpy as np
@@ -6,7 +7,7 @@ import sounddevice as sd
 # --- Vosk Model Setup ---
 VOSK_MODEL_PATH = "models/vosk-model-small-en-us-0.15" 
 # VOSK_MODEL_PATH = "models/vosk-model-en-us-0.22" 
-RATE = 48000
+RATE = 44100
 STT_CHANNELS = 1
 SD_FORMAT = 'int16'  # sounddevice equivalent of paInt16
 SD_CHUNK_SIZE = 1024
@@ -68,15 +69,4 @@ def record_with_sounddevice_and_transcribe(duration_seconds=7, device_id_to_test
 
 if __name__ == "__main__":
     # List available devices and let user choose
-    # devices = list_audio_devices()
-    
-    # Default device (None uses default input device)
-    TARGET_DEVICE_ID = 2  # Change this to a specific device ID if needed
-    
-    if not stt_model:
-        print("STT Model not loaded, cannot run sounddevice with Vosk test.")
-    else:
-        print(f"\n--- Testing sounddevice with Vosk: Device ID: {TARGET_DEVICE_ID} ---")
-        result = record_with_sounddevice_and_transcribe(duration_seconds=5, device_id_to_test=TARGET_DEVICE_ID)
-        print(f"Text: {result}")
-        print("-" * 30)
+    devices = list_audio_devices()

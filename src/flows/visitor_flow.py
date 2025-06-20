@@ -56,18 +56,23 @@ class VisitorFlow:
     def _handle_known_visitor(self, name: str, user_id: str):
         """Handles the flow for a known visitor using their unique ID."""
         logger.info(f"Handling known visitor '{name}' with ID '{user_id}'.")
-        self.tts.speak(f"Hi, {name}. Let me check your permissions.")
-
         response = self.aws.check_permissions(user_id)
-        permission_level = response.get("permission_level") if response else None
+        user_exists = response.get("permission_exists") if response else False
 
-        if permission_level == "Allowed":
-            logger.info(f"Visitor '{name}' is allowed.")
-            self.tts.speak("You are allowed to leave a message.")
-            self._record_and_send_message(name, user_id)
-        else: # Covers "Denied" and other cases
-            logger.warning(f"Visitor '{name}' has permission '{permission_level}'. Access denied.")
-            self.tts.speak(f"Sorry, {name}. It seems you don't have permission to leave a message. Have a nice day.")
+        if not user_exists:
+            faces_db_path = Path.cwd() / "data" / "known_faces_db"
+            self.user_manager.delete_user(user_id, faces_db_path)
+            self._handle_new_visitor_registration()
+        else:
+            permission_level = response.get("permission_level") if response else None
+            self.tts.speak(f"Hi, {name}. Let me check your permissions.")
+            if permission_level == "Allowed":
+                logger.info(f"Visitor '{name}' is allowed.")
+                self.tts.speak("You are allowed to leave a message.")
+                self._record_and_send_message(name, user_id)
+            else: # Covers "Denied" and other cases
+                logger.warning(f"Visitor '{name}' has permission '{permission_level}'. Access denied.")
+                self.tts.speak(f"Sorry, {name}. It seems you don't have permission to leave a message. Have a nice day.")
 
     def _handle_new_visitor_registration(self):
         """Handles registering a new visitor, creating a unique ID, and saving face data."""
@@ -130,11 +135,10 @@ class VisitorFlow:
         final_video_path = f"data/visitor_message_{user_id}.mp4"
         
         try:
-            self.face_proc.record_video(
-                final_output_path=final_video_path,
-                duration=10,
+            self.face_proc.record_video_with_audio(
                 camera_id=0,
-                audio_device_id=2
+                output_file=final_video_path,
+                duration=10,
             )
             
             self.tts.speak("Recording finished. Now sending your message...")

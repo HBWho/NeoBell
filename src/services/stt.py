@@ -7,7 +7,8 @@ from vosk import Model, KaldiRecognizer
 logger = logging.getLogger(__name__)
 
 # --- Vosk Model Setup ---
-RATE = 44100
+# RATE = 44100 # old mic
+RATE = 48000 # new mic
 STT_CHANNELS = 1
 SD_FORMAT = 'int16'  # sounddevice equivalent of paInt16
 SD_CHUNK_SIZE = 1024

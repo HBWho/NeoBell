@@ -1,4 +1,5 @@
 import json
+import shutil
 import uuid
 import logging
 from pathlib import Path
@@ -66,6 +67,56 @@ class UserManager:
         self._save_users()
         logger.info(f"Created new user '{name}' with ID: {new_id}")
         return new_id, new_user_data
+
+    def delete_user(self, user_id: str, user_faces_dir: Path | None = None) -> bool:
+        """
+        Deletes a user from the database and their associated face folder (if provided).
+        
+        Args:
+            user_id: ID of the user to be deleted
+            user_faces_dir: Optional path to the directory where user folders are stored
+            
+        Returns:
+            True if user was successfully deleted, False otherwise
+        """
+        # Check if user exists in database
+        if user_id not in self.users:
+            logger.warning(f"Attempt to delete non-existent user: {user_id}")
+            return False
+
+        try:
+            if user_faces_dir is not None:
+                # Ensure user_faces_dir is a Path object
+                if isinstance(user_faces_dir, str):
+                    user_faces_dir = Path(user_faces_dir)
+                    
+                user_dir = user_faces_dir / user_id
+
+                if user_dir.exists():
+                    # Recursively delete the directory and all contents
+                    shutil.rmtree(user_dir)
+                    logger.info(f"User folder {user_id} removed: {user_dir}")
+
+            # Remove user from in-memory dictionary
+            deleted_user = self.users.pop(user_id)
+            
+            # Persist changes to JSON file
+            self._save_users()
+            
+            logger.info(f"User deleted successfully: {user_id} ({deleted_user['name']})")
+            return True
+            
+        except OSError as e:
+            # Handle filesystem errors (permissions, locked files, etc.)
+            logger.error(f"Error deleting user folder {user_id}: {e}")
+            return False
+        except Exception as e:
+            # Catch any other unexpected errors
+            logger.error(f"Unexpected error deleting user {user_id}: {e}")
+            # Restore user to dictionary if error occurred after removal
+            if user_id not in self.users and 'deleted_user' in locals():
+                self.users[user_id] = deleted_user
+            return False
 
     def get_user_by_name(self, name: str) -> tuple[str | None, dict | None]:
         """Finds a user by name and returns their ID and data."""
