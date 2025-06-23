@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 
 # Constants for camera IDs
 EXTERNAL_CAMERA = 0
-INTERNAL_CAMERA = 1 
+INTERNAL_CAMERA = 0
 
 class DeliveryFlow:
     """Handles the entire package delivery workflow."""
@@ -26,25 +26,19 @@ class DeliveryFlow:
         self.gpio.set_external_green_led(False)
         
         try:
-            # Step 1: Scan external package QR code
-            delivery_code = self._scan_external_package()
-            if not delivery_code:
-                self.tts.speak("I could not read the package code. Please try again later.")
-                return # End flow
+            # Step 1 & 2: Scan external package and validate all codes found
+            validated_codes = self._scan_and_validate_external_package()
+            if not validated_codes:
+                self.tts.speak("I could not find a valid delivery code on this package. Please try again later.")
+                return
 
-            # Step 2: Validate with AWS
-            is_valid = self.aws.request_package_info(id_type="tracking_number", id_value=delivery_code)
-            if not is_valid:
-                self.tts.speak("This delivery code is not valid. Please check the package.")
-                return # End flow
-
-            # Step 3: Open compartment and guide user
+            # Step 3: Open compartment
             self._handle_deposit()
 
             # Step 4: Internal verification scan
-            is_same_package = self._scan_internal_package(delivery_code)
+            is_same_package = self._scan_internal_package(validated_codes)
             
-            # Step 5: Final actions based on verification
+            # Step 5: Final actions
             if is_same_package:
                 self._finalize_delivery()
             else:
@@ -61,21 +55,62 @@ class DeliveryFlow:
             self.gpio.set_external_green_led(False)
             self.gpio.set_external_red_led(True)
 
-
-    def _scan_external_package(self) -> str | None:
-        """Asks for and scans the package's QR code from the external camera."""
-        self.tts.speak("Please show the package's QR code to the camera. The photo will be taken in 5, 4, 3, 2, 1.")
+    def _scan_and_validate_external_package(self) -> list[str] | None:
+        """
+        Asks for and scans the package's codes, validates each one with AWS,
+        and returns a list of all valid codes.
+        """
+        self.tts.speak("Please show the package's QR code to the camera. The photo will be taken in 3, 2, 1.")
         if not self.ocr.take_picture(EXTERNAL_CAMERA):
             logger.error("Failed to take picture with external camera.")
             return None
         
-        codes = self.ocr.process_codes() # Processes the default temp image
-        if codes:
-            logger.info(f"Found delivery code: {codes[0]}")
-            return codes[0] # Return the first code found
+        all_found_codes = self.ocr.process_codes()
+        if not all_found_codes:
+            logger.warning("No scannable codes found on the package.")
+            return None
+
+        logger.info(f"Found {len(all_found_codes)} codes: {all_found_codes}. Validating with backend...")
         
-        logger.warning("No scannable codes found on the package.")
-        return None
+        validated_codes = []
+        for code in all_found_codes:
+            if self.aws.request_package_info(identifier_type="tracking_number", identifier_value=code):
+                logger.info(f"Code '{code}' is VALID.")
+                validated_codes.append(code)
+            else:
+                logger.info(f"Code '{code}' is invalid.")
+
+        if not validated_codes:
+            logger.warning("None of the found codes were valid.")
+            return None
+            
+        return validated_codes
+
+    def _scan_internal_package(self, original_valid_codes: list[str]) -> bool:
+        """
+        Scans the package inside the compartment and checks if any of the new codes
+        match any of the original valid codes.
+        """
+        self.tts.speak("Thank you. I will now verify the package inside.")
+        
+        if not self.ocr.take_picture(INTERNAL_CAMERA):
+            logger.error("Failed to take picture with internal camera.")
+            return False
+            
+        internal_codes = self.ocr.process_codes()
+        if not internal_codes:
+            logger.warning("Could not find any codes in the internal scan.")
+            return False
+
+        logger.info(f"Internal scan found codes: {internal_codes}")
+        
+        # Use sets for an efficient check for any common element
+        if set(original_valid_codes) & set(internal_codes):
+            logger.info("Internal package verification successful. A matching code was found.")
+            return True
+        
+        logger.warning(f"Internal scan failed. No match between original codes {original_valid_codes} and internal codes {internal_codes}.")
+        return False
 
     def _handle_deposit(self):
         """Opens the compartment and instructs the user."""
@@ -86,24 +121,6 @@ class DeliveryFlow:
         self.gpio.set_collect_lock(False) # Unlock the compartment
         time.sleep(7) # Give the user time to place the package
         self.gpio.set_collect_lock(True) # Lock the compartment
-
-    def _scan_internal_package(self, original_code: str) -> bool:
-        """Scans the package inside the compartment for verification."""
-        self.tts.speak("Thank you. I will now verify the package inside.")
-        # Here you might want to close a main door before the final hatch action
-        # For now, we just scan
-        
-        if not self.ocr.take_picture(INTERNAL_CAMERA):
-            logger.error("Failed to take picture with internal camera.")
-            return False
-            
-        codes = self.ocr.process_codes()
-        if codes and original_code in codes:
-            logger.info("Internal package verification successful.")
-            return True
-        
-        logger.warning(f"Internal scan failed. Original code '{original_code}' not found in internal scan codes: {codes}")
-        return False
 
     def _finalize_delivery(self):
         """Handles the successful delivery confirmation and secures the package."""

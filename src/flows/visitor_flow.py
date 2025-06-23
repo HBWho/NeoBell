@@ -10,17 +10,17 @@ class VisitorFlow:
     Handles all logic related to visitor interactions, from recognition
     and registration to leaving video messages.
     """
-    def __init__(self, aws_client, user_manager, gpio_service, tts_service, stt_service, face_processor, gapi_service):
+    def __init__(self, **services):
         """
         Initializes the flow with all its required service dependencies.
         """
-        self.aws = aws_client
-        self.user_manager = user_manager
-        self.gpio = gpio_service
-        self.tts = tts_service
-        self.stt = stt_service
-        self.face_proc = face_processor
-        self.gapi = gapi_service
+        self.aws = services.get("aws_client")
+        self.user_manager = services.get("user_manager")
+        self.gpio = services.get("gpio_service")
+        self.tts = services.get("tts_service")
+        self.stt = services.get("stt_service")
+        self.face_proc = services.get("face_processor")
+        self.gapi = services.get("gapi_service")
         self.stt.load_model()
         logger.info("Visitor Flow handler initialized.")
 

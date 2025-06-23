@@ -1,5 +1,8 @@
+import logging
 from gpiod.line import Direction, Value
 import gpiod
+
+logger = logging.getLogger(__name__)
 
 class GpioManager:
     """
@@ -32,19 +35,11 @@ class GpioManager:
                 direction = Direction.OUTPUT if pin_type == 'outputs' else Direction.INPUT
                 self.config[chip_path][line_num] = gpiod.LineSettings(direction=direction)
 
-        # Request all configured lines from their respective chips
-        self.requests = [
-            gpiod.request_lines(chip_path, consumer=consumer, config=chip_config)
+        self.requests = {
+            chip_path: gpiod.request_lines(chip_path, consumer=consumer, config=chip_config)
             for chip_path, chip_config in self.config.items()
-        ]
-
-    def _find_request(self, pin: tuple[int, int]):
-        """Finds the gpiod request object corresponding to a given pin."""
-        chip_path = f"/dev/gpiochip{pin[0]}"
-        for req in self.requests:
-            if req.path == chip_path:
-                return req
-        raise ValueError(f"Pin {pin} was not initialized in this manager.")
+        }
+        logger.info(f"GPIO Manager initialized for chips: {list(self.requests.keys())}")
 
     def set_pin_value(self, pin: tuple[int, int], is_active: bool):
         """
@@ -54,9 +49,16 @@ class GpioManager:
             pin: The (chip, line) tuple of the pin to set.
             is_active: True to set the pin to ACTIVE, False for INACTIVE.
         """
-        request = self._find_request(pin)
+        chip_num, line_num = pin
+        chip_path = f"/dev/gpiochip{chip_num}"
+        
+        request = self.requests.get(chip_path)
+        
+        if not request:
+            raise ValueError(f"No request found for chip {chip_path}. Was it initialized in GpioManager?")
+
         value = Value.ACTIVE if is_active else Value.INACTIVE
-        request.set_value(pin[1], value)
+        request.set_value(line_num, value)
 
     def get_pin_value(self, pin: tuple[int, int]) -> bool:
         """
@@ -68,13 +70,21 @@ class GpioManager:
         Returns:
             True if the pin is ACTIVE, False if INACTIVE.
         """
-        request = self._find_request(pin)
-        return request.get_value(pin[1]) == Value.ACTIVE
+        chip_num, line_num = pin
+        chip_path = f"/dev/gpiochip{chip_num}"
+        
+        request = self.requests.get(chip_path)
+        
+        if not request:
+            raise ValueError(f"No request found for chip {chip_path}. Was it initialized in GpioManager?")
+
+        return request.get_value(line_num) == Value.ACTIVE
 
     def close(self):
         """Releases all requested GPIO lines."""
-        for req in self.requests:
-            req.close()
+        logger.info("Closing all GPIO line requests.")
+        for request in self.requests.values():
+            request.close()
 
     def __enter__(self):
         """Enables the use of 'with' statement for resource management."""

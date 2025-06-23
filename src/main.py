@@ -27,20 +27,39 @@ class Orchestrator:
     and orchestrates the primary user interaction flow.
     """
     def __init__(self):
-        """Initializes services and starts the application lifecycle."""
-        try:
-            logger.info("Orchestrator starting up...")
-            self._load_config()
-            self._init_services()
+        """Initializes configuration. Services are initialized in __enter__."""
+        logger.info("Orchestrator initializing...")
+        self._load_config()
+        self.aws_client = None
+        self.gpio_manager = None
+        self.gpio_service = None
+        self.user_manager = None
+        self.gapi_service = None
+        self.stt_service = None
+        self.tts_service = None
+        self.face_processor = None
+        self.ocr_service = None
+        self.servo_service = None
 
-            with AwsIotClient(self.sbc_id, self.endpoint, self.port, self.cert_path, self.key_path, self.ca_path) as aws_client:
-                self._init_flow_handlers(aws_client)
-                self.run_interaction_loop()
+    def __enter__(self):
+        """Context manager entry: initializes and connects all services."""
+        logger.info("Entering runtime context. Initializing services...")
+        self._init_services()
+        self.aws_client.connect()
+        self._init_flow_handlers(self.aws_client)
+        return self # Return the instance to be used in the 'with' block
 
-        except Exception as e:
-            logger.critical("A critical error occurred during Orchestrator initialization.", exc_info=True)
-            if hasattr(self, 'tts_service'):
-                self.tts_service.speak("A critical system error occurred. Shutting down.")
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit: ensures all resources are released."""
+        logger.info("Exiting runtime context. Shutting down services...")
+        if self.aws_client:
+            self.aws_client.disconnect()
+        if self.gpio_manager:
+            self.gpio_manager.close()
+        logger.info("All services shut down gracefully.")
+        # If an exception occurred, it can be logged here
+        if exc_type:
+            logger.error("Application exited with an exception.", exc_info=(exc_type, exc_val, exc_tb))
 
     def _load_config(self):
         """Loads all necessary configuration from environment variables."""
@@ -57,6 +76,7 @@ class Orchestrator:
         """Initializes singleton services used across the application."""
         logger.info("Initializing core services (TTS, STT, etc.)...")
         user_db_file = Path.cwd() / "data" / "users.json"
+        self.aws_client = AwsIotClient(self.sbc_id, self.endpoint, self.port, self.cert_path, self.key_path, self.ca_path)
         self.user_manager = UserManager(db_path=user_db_file)
         self.gapi_service = GAPI(debug_mode=True)
         self.stt_service = STTService(model_path=self.model_path, device_id=2)
@@ -75,7 +95,6 @@ class Orchestrator:
     def _init_flow_handlers(self, aws_client):
         """Initializes the specific flow handlers, injecting dependencies."""
         logger.info("Initializing flow handlers (Visitor, Delivery)...")
-        # A dictionary of common services to pass to each flow handler
         common_services = {
             "aws_client": aws_client,
             "user_manager": self.user_manager,
@@ -83,8 +102,11 @@ class Orchestrator:
             "tts_service": self.tts_service,
             "stt_service": self.stt_service,
             "gapi_service": self.gapi_service,
-            "face_processor": self.face_processor
+            "face_processor": self.face_processor,
+            "ocr_processing": self.ocr_service,
+            "servo_service": self.servo_service
         }
+
         self.visitor_handler = VisitorFlow(**common_services)
         self.delivery_handler = DeliveryFlow(**common_services)
 
@@ -127,15 +149,19 @@ class Orchestrator:
                 self.tts_service.speak("An unexpected error occurred. Restarting interaction.")
                 time.sleep(2)
 
-    def __del__(self):
-        """Ensure GPIO resources are released on exit."""
-        if hasattr(self, 'gpio_manager'):
-            logger.info("Releasing GPIO resources.")
-            self.gpio_manager.close()
-
 def main():
-    Orchestrator()
-    logger.info("System has shut down.")
+    """The main entry point of the application."""
+    setup_logging()
+    logger.info("Application starting up...")
+    try:
+        with Orchestrator() as app:
+            app.run_interaction_loop()
+    except KeyboardInterrupt:
+        logger.info("Application interrupted by user (Ctrl+C).")
+    except Exception as e:
+        logger.critical("A fatal error occurred, forcing application to exit.", exc_info=True)
+    finally:
+        logger.info("System has shut down.")
 
 if __name__ == "__main__":
     main()
