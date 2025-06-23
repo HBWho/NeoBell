@@ -8,7 +8,7 @@ from pylibdmtx.pylibdmtx import decode as DMReader # DataMatrix
 
 logger = logging.getLogger(__name__)
 
-TEMP_IMAGE = "temp_image.jpg"
+TEMP_IMAGE = "ocr_temp_image.jpg"
 
 @dataclass
 class DecodedData:

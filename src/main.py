@@ -10,8 +10,12 @@ from services.stt import STTService
 from services.tts import TTSService
 from services.api import GAPI
 from services.user_manager import UserManager
+from services.servo_service import ServoService 
 from ai_services.face_processing import FaceProcessing
+from ai_services.ocr_processing import OCRProcessing
 from communication.aws_client import AwsIotClient
+from hal.gpio import GpioManager 
+from hal.pin_service import GpioService
 from flows.visitor_flow import VisitorFlow
 from flows.delivery_flow import DeliveryFlow
 
@@ -58,7 +62,15 @@ class Orchestrator:
         self.stt_service = STTService(model_path=self.model_path, device_id=2)
         self.tts_service = TTSService()
         self.face_processor = FaceProcessing()
-        self.gpio_service = None # Placeholder for GpioService
+        self.ocr_service = OCRProcessing()
+        self.servo_service = ServoService(pwm_chip=1, pwm_channel=0)
+
+        output_pins = [
+            (4, 9), (4, 5), (4, 2), # LEDs
+            (1, 8), (1, 13), (4, 12)  # Locks
+        ]
+        self.gpio_manager = GpioManager(output_pins=output_pins, input_pins=[])
+        self.gpio_service = GpioService(gpio_manager=self.gpio_manager)
 
     def _init_flow_handlers(self, aws_client):
         """Initializes the specific flow handlers, injecting dependencies."""
@@ -100,7 +112,7 @@ class Orchestrator:
                 if intent == "VISITOR_MESSAGE":
                     self.visitor_handler.start_interaction()
                 elif intent == "PACKAGE_DELIVERY":
-                    self.delivery_handler.start_delivery_process()
+                    self.delivery_handler.start_delivery_flow()
                 else:
                     self.tts_service.speak("I'm sorry, I didn't understand. Please say 'delivery' or 'message'.")
 
@@ -114,6 +126,12 @@ class Orchestrator:
                 logger.error("An error occurred during the interaction loop.", exc_info=True)
                 self.tts_service.speak("An unexpected error occurred. Restarting interaction.")
                 time.sleep(2)
+
+    def __del__(self):
+        """Ensure GPIO resources are released on exit."""
+        if hasattr(self, 'gpio_manager'):
+            logger.info("Releasing GPIO resources.")
+            self.gpio_manager.close()
 
 def main():
     Orchestrator()
