@@ -5,7 +5,7 @@ logger = logging.getLogger(__name__)
 
 # Constants for camera IDs
 EXTERNAL_CAMERA = 0
-INTERNAL_CAMERA = 0
+INTERNAL_CAMERA = 2
 
 class DeliveryFlow:
     """Handles the entire package delivery workflow."""
@@ -61,9 +61,11 @@ class DeliveryFlow:
         and returns a list of all valid codes.
         """
         self.tts.speak("Please show the package's QR code to the camera. The photo will be taken in 3, 2, 1.")
+        # self.gpio.set_camera_led(True)
         if not self.ocr.take_picture(EXTERNAL_CAMERA):
             logger.error("Failed to take picture with external camera.")
             return None
+        # self.gpio.set_camera_led(True)
         
         all_found_codes = self.ocr.process_codes()
         if not all_found_codes:
@@ -118,9 +120,11 @@ class DeliveryFlow:
         self.gpio.set_external_red_led(False)
         self.gpio.set_external_green_led(True)
         self.gpio.set_internal_led(True)
-        self.gpio.set_collect_lock(False) # Unlock the compartment
+        self.gpio.set_external_lock(True) # Unlock the compartment
         time.sleep(7) # Give the user time to place the package
-        self.gpio.set_collect_lock(True) # Lock the compartment
+        self.gpio.set_external_lock(False) # Lock the compartment
+        self.gpio.set_external_green_led(False)
+        self.gpio.set_external_red_led(True)
 
     def _finalize_delivery(self):
         """Handles the successful delivery confirmation and secures the package."""
@@ -131,16 +135,16 @@ class DeliveryFlow:
         self.gpio.set_external_red_led(True)
         
         # This is the final "trapdoor" action to secure the package internally
-        self.servo.open_hatch() # Open the hatch
+        self.servo.openHatch() # Open the hatch
         time.sleep(5)
-        self.servo.close_hatch() # Close the hatch
+        self.servo.closeHatch() # Close the hatch
         logger.info("Delivery finalized and package secured.")
 
     def _reject_package(self):
         """Handles a failed internal verification."""
         self.tts.speak("The package inside does not seem to match the one scanned outside. Please remove the package and close the door.")
         # Wait for user to remove package. You might add a sensor check here in the future.
-        self.gpio.set_collect_lock(False) # Unlock the compartment
+        self.gpio.set_external_lock(True) # Unlock the compartment
         time.sleep(7)
-        self.gpio.set_collect_lock(True) # Lock the compartment
+        self.gpio.set_external_lock(False) # Lock the compartment
         logger.warning("Package rejected due to mismatch.")

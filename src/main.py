@@ -11,6 +11,7 @@ from services.tts import TTSService
 from services.api import GAPI
 from services.user_manager import UserManager
 from services.servo_service import ServoService 
+from services.rfid_service import RfidListenerService
 from ai_services.face_processing import FaceProcessing
 from ai_services.ocr_processing import OCRProcessing
 from communication.aws_client import AwsIotClient
@@ -40,18 +41,23 @@ class Orchestrator:
         self.face_processor = None
         self.ocr_service = None
         self.servo_service = None
+        self.rfid_listener = None
 
     def __enter__(self):
         """Context manager entry: initializes and connects all services."""
         logger.info("Entering runtime context. Initializing services...")
         self._init_services()
         self.aws_client.connect()
+        self.rfid_listener.start()
         self._init_flow_handlers(self.aws_client)
         return self # Return the instance to be used in the 'with' block
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit: ensures all resources are released."""
         logger.info("Exiting runtime context. Shutting down services...")
+
+        if self.rfid_listener:
+            self.rfid_listener.stop()
         if self.aws_client:
             self.aws_client.disconnect()
         if self.gpio_manager:
@@ -80,17 +86,22 @@ class Orchestrator:
         self.user_manager = UserManager(db_path=user_db_file)
         self.gapi_service = GAPI(debug_mode=True)
         self.stt_service = STTService(model_path=self.model_path, device_id=2)
-        self.tts_service = TTSService()
+        self.tts_service = TTSService(lang="en-us", variant="m7", speed=160, pitch=45)
         self.face_processor = FaceProcessing()
         self.ocr_service = OCRProcessing()
         self.servo_service = ServoService(pwm_chip=1, pwm_channel=0)
 
         output_pins = [
-            (4, 9), (4, 5), (4, 2), # LEDs
+            (4, 9), (4, 5), (4, 2), (4, 8),# LEDs
             (1, 8), (1, 13), (4, 12)  # Locks
         ]
         self.gpio_manager = GpioManager(output_pins=output_pins, input_pins=[])
         self.gpio_service = GpioService(gpio_manager=self.gpio_manager)
+
+        self.rfid_listener = RfidListenerService(
+            aws_client=self.aws_client, 
+            gpio_service=self.gpio_service
+        )
 
     def _init_flow_handlers(self, aws_client):
         """Initializes the specific flow handlers, injecting dependencies."""
@@ -118,6 +129,11 @@ class Orchestrator:
         logger.info("System ready. Starting main interaction loop.")
         while True:
             try:
+                # while True:
+                #     print("try")
+                # raise Exception("Para")
+                # self.delivery_handler.start_delivery_flow()
+                self.gpio_service.set_external_red_led(True)
                 self.tts_service.speak("Hello. I am Neobell. Are you here to deliver a package or to leave a message?")
                 text = self.stt_service.transcribe_audio(duration_seconds=7)
                 logger.info(f"Text said by user: {text}")
@@ -128,7 +144,8 @@ class Orchestrator:
                     continue
 
                 logger.info(f"User transcription: '{text}'")
-                intent = self.gapi_service.get_initial_intent(text).value
+                # intent = self.gapi_service.get_initial_intent(text).value
+                intent = "PACKAGE_DELIVERY"
                 logger.info(f"Detected intent: '{intent}'")
 
                 if intent == "VISITOR_MESSAGE":

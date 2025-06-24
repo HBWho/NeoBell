@@ -19,57 +19,87 @@ class ServoService:
         """
         self.pwm_chip = pwm_chip
         self.pwm_channel = pwm_channel
-        # Define duty cycles for open/closed positions. These may need tuning.
-        # Based on your code: 0.025 is open, 0.093 is closed.
-        self.open_duty_cycle = 0.025
-        self.closed_duty_cycle = 0.093
 
-    def _move_to_position(self, target_duty_cycle: float):
-        """Private helper method to move the servo to a target position smoothly."""
-        pwm = None # Ensure pwm is defined for the finally block
+    def closeHatch(self):
         try:
-            logger.info(f"Moving servo to duty cycle: {target_duty_cycle}")
             pwm = PWM(self.pwm_chip, self.pwm_channel)
             pwm.frequency = 50
+            pwm.duty_cycle = 0.0930  # Começa em 0%
             pwm.polarity = "normal"
             pwm.enable()
 
-            # Set a starting position before moving
-            pwm.duty_cycle = self.closed_duty_cycle if target_duty_cycle < pwm.duty_cycle else self.open_duty_cycle
-            time.sleep(0.5)
-
-            # Move towards the target
-            current_duty = pwm.duty_cycle
-            direction = 1 if target_duty_cycle > current_duty else -1
-            
+            posicao_final = 93
+            posicao_target = 25
+            posicao_final = (posicao_final/1000)
+            posicao_target = (posicao_target/1000)
+            direction = -1  
+            time.sleep(2)
             while True:
-                current_duty += 0.001 * direction
-                pwm.duty_cycle = current_duty
-                time.sleep(0.02) # Adjust sleep for speed/smoothness
+                pwm.duty_cycle += 0.0005 * direction  # passo para suavidade
+                pwm.duty_cycle = round(pwm.duty_cycle, 5)
 
-                if direction == 1 and current_duty >= target_duty_cycle:
+                print("Duty:", pwm.duty_cycle)
+
+                # Limites entre 0% e 10%
+                if pwm.duty_cycle >= posicao_final:
+                    direction = -1
+                elif pwm.duty_cycle <= posicao_target:
+                    direction = 1
+
+                if pwm.duty_cycle == posicao_final:
                     break
-                if direction == -1 and current_duty <= target_duty_cycle:
-                    break
+                if pwm.duty_cycle == posicao_target:
+                    time.sleep(3)
+                if direction == -1:
+                    if pwm.duty_cycle > 0.060:
+                        time.sleep(0.01)
+                    else:
+                        time.sleep(0.005)
+                else:
+                    time.sleep(0.2)
             
-            logger.info("Servo move complete.")
-            time.sleep(1) # Hold position briefly
+            pwm.close()
 
-        except Exception as e:
-            logger.error("An error occurred while controlling the servo.", exc_info=True)
         finally:
-            if pwm:
-                pwm.duty_cycle = target_duty_cycle # Ensure it ends at the target
-                pwm.disable()
-                pwm.close()
-                logger.info("PWM resource closed.")
+            pwm.close()
 
-    def open_hatch(self):
-        """Opens the hatch to the defined 'open' position."""
-        logger.info("Opening hatch...")
-        self._move_to_position(self.open_duty_cycle)
+    def openHatch(self):
+        try:
+            pwm = PWM(self.pwm_chip, self.pwm_channel)
+            pwm.frequency = 50
+            pwm.duty_cycle = 0.0930  # Começa em 0%
+            pwm.polarity = "normal"
+            pwm.enable()
 
-    def close_hatch(self):
-        """Closes the hatch to the defined 'closed' position."""
-        logger.info("Closing hatch...")
-        self._move_to_position(self.closed_duty_cycle)
+            posicao_final = 100
+            posicao_target = 93
+            posicao_final = (posicao_final/1000)
+            posicao_target = (posicao_target/1000)
+            direction = 1
+
+            while True:
+                pwm.duty_cycle += 0.0005 * direction  # passo para suavidade
+                pwm.duty_cycle = round(pwm.duty_cycle, 5)
+
+                print("Duty:", pwm.duty_cycle)
+
+                # Limites entre 0% e 10%
+                if pwm.duty_cycle >= posicao_final:
+                    direction = -1
+                elif pwm.duty_cycle <= posicao_target:
+                    direction = 1
+
+                if pwm.duty_cycle == posicao_final:
+                    break
+                if pwm.duty_cycle == posicao_target:
+                    time.sleep(1)
+                if direction == -1:
+                    time.sleep(0.01)
+                else:
+                    time.sleep(0.001)
+            time.sleep(3)
+            pwm.duty_cycle = 0.0930
+            pwm.close()
+
+        finally:
+            pwm.close()

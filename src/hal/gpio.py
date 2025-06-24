@@ -1,5 +1,5 @@
 import logging
-from gpiod.line import Direction, Value
+from gpiod.line import Direction, Value, Bias
 import gpiod
 
 logger = logging.getLogger(__name__)
@@ -32,8 +32,15 @@ class GpioManager:
                 if chip_path not in self.config:
                     self.config[chip_path] = {}
                 
-                direction = Direction.OUTPUT if pin_type == 'outputs' else Direction.INPUT
-                self.config[chip_path][line_num] = gpiod.LineSettings(direction=direction)
+                if pin_type == 'outputs':
+                    settings = gpiod.LineSettings(direction=Direction.OUTPUT)
+                else: 
+                    settings = gpiod.LineSettings(
+                        direction=Direction.INPUT,
+                        bias=Bias.PULL_UP
+                    )
+
+                self.config[chip_path][line_num] = settings
 
         self.requests = {
             chip_path: gpiod.request_lines(chip_path, consumer=consumer, config=chip_config)
@@ -82,9 +89,11 @@ class GpioManager:
 
     def close(self):
         """Releases all requested GPIO lines."""
-        logger.info("Closing all GPIO line requests.")
-        for request in self.requests.values():
-            request.close()
+        logger.info("Signaling GPIO resources to be released by the system.")
+        self.requests.clear()
+        # logger.info("Closing all GPIO line requests.")
+        # for request in self.requests.values():
+        #     request.close()
 
     def __enter__(self):
         """Enables the use of 'with' statement for resource management."""
