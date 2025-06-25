@@ -120,7 +120,7 @@ class FaceProcessing:
         try:
             # Configurações de dispositivo (ajuste conforme necessário)
             video_device = f"/dev/video{camera_id}"  # Linux
-            audio_device = "default"  # Linux
+            audio_device = "plughw:CARD=Device,DEV=0"  # Linux
             
             # Comando FFmpeg otimizado para compatibilidade
             cmd = [

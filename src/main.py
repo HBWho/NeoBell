@@ -1,6 +1,7 @@
 import os
 import time
 import logging
+import sounddevice as sd
 from pathlib import Path
 from config.logging_config import setup_logging
 
@@ -23,6 +24,36 @@ from flows.delivery_flow import DeliveryFlow
 BUTTON_PIN = (1, 12) # Physical Pin 33 
 
 logger = logging.getLogger(__name__)
+
+def find_stt_device_id(device_name_substring: str) -> int | None:
+    """
+    Finds the device index for an audio input device that contains a specific substring.
+
+    This makes device selection robust against changes in device order.
+
+    Args:
+        device_name_substring: A unique part of the desired device's name.
+
+    Returns:
+        The integer index of the found device, or None if not found.
+    """
+    try:
+        devices = sd.query_devices()
+        for i, device in enumerate(devices):
+            # We are looking for an INPUT device that contains our target name
+            is_input = device.get('max_input_channels', 0) > 0
+            name_matches = device_name_substring.lower() in device.get('name', '').lower()
+            
+            if is_input and name_matches:
+                logger.info(f"Found matching STT device: '{device['name']}' with index {i}.")
+                return i
+    except Exception as e:
+        logger.error("Could not query audio devices.", exc_info=True)
+        return None
+        
+    logger.warning(f"Could not find an input device matching '{device_name_substring}'. STT might not work.")
+    logger.warning(f"Available devices: {devices}")
+    return None
 
 class Orchestrator:
     """
@@ -87,11 +118,17 @@ class Orchestrator:
         self.aws_client = AwsIotClient(self.sbc_id, self.endpoint, self.port, self.cert_path, self.key_path, self.ca_path)
         self.user_manager = UserManager(db_path=user_db_file)
         self.gapi_service = GAPI(debug_mode=True)
-        self.stt_service = STTService(model_path=self.model_path, device_id=3)
         self.tts_service = TTSService(lang="en-us", variant="m7", speed=160, pitch=45)
         self.face_processor = FaceProcessing()
         self.ocr_service = OCRProcessing()
         self.servo_service = ServoService(pwm_chip=1, pwm_channel=0)
+
+        stt_device_id = find_stt_device_id(device_name_substring="USB PnP Sound Device")
+        if stt_device_id is None:
+            logger.critical("Could not find a suitable STT audio device. STT will be disabled.")
+            self.stt_service = None
+        else:
+            self.stt_service = STTService(model_path=self.model_path, device_id=stt_device_id)
 
         input_pins = [BUTTON_PIN]
         output_pins = [
