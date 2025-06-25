@@ -61,11 +61,9 @@ class DeliveryFlow:
         and returns a list of all valid codes.
         """
         self.tts.speak("Please show the package's QR code to the camera. The photo will be taken in 3, 2, 1.")
-        # self.gpio.set_camera_led(True)
         if not self.ocr.take_picture(EXTERNAL_CAMERA):
             logger.error("Failed to take picture with external camera.")
             return None
-        # self.gpio.set_camera_led(True)
         
         all_found_codes = self.ocr.process_codes()
         if not all_found_codes:
@@ -76,14 +74,25 @@ class DeliveryFlow:
         
         validated_codes = []
         for code in all_found_codes:
-            if self.aws.request_package_info(identifier_type="tracking_number", identifier_value=code):
-                logger.info(f"Code '{code}' is VALID.")
-                validated_codes.append(code)
-            else:
-                logger.info(f"Code '{code}' is invalid.")
+            response = self.aws.request_package_info("tracking_number", code)
 
+            # Check 1: Did we get a response?
+            # Check 2: Is 'package_found' True?
+            # Check 3: Is the nested 'status' equal to 'pending'?
+            if response and response.get('package_found') is True:
+                details = response.get('details', {})
+                if details.get('status') == 'pending':
+                    logger.info(f"Code '{code}' is VALID and package status is 'pending'.")
+                    validated_codes.append(code)
+                else:
+                    status = details.get('status', 'unknown')
+                    logger.warning(f"Package for code '{code}' was found, but its status is '{status}', not 'pending'.")
+                    self.tts.speak(f"This package cannot be delivered, its status is {status}.")
+            else:
+                logger.warning(f"Package for code '{code}' was not found in the system.")
+        
         if not validated_codes:
-            logger.warning("None of the found codes were valid.")
+            logger.error("No valid packages with 'pending' status were found after checking all codes.")
             return None
             
         return validated_codes

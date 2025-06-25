@@ -20,6 +20,8 @@ from hal.pin_service import GpioService
 from flows.visitor_flow import VisitorFlow
 from flows.delivery_flow import DeliveryFlow
 
+BUTTON_PIN = (1, 12) # Physical Pin 33 
+
 logger = logging.getLogger(__name__)
 
 class Orchestrator:
@@ -85,17 +87,18 @@ class Orchestrator:
         self.aws_client = AwsIotClient(self.sbc_id, self.endpoint, self.port, self.cert_path, self.key_path, self.ca_path)
         self.user_manager = UserManager(db_path=user_db_file)
         self.gapi_service = GAPI(debug_mode=True)
-        self.stt_service = STTService(model_path=self.model_path, device_id=2)
+        self.stt_service = STTService(model_path=self.model_path, device_id=3)
         self.tts_service = TTSService(lang="en-us", variant="m7", speed=160, pitch=45)
         self.face_processor = FaceProcessing()
         self.ocr_service = OCRProcessing()
         self.servo_service = ServoService(pwm_chip=1, pwm_channel=0)
 
+        input_pins = [BUTTON_PIN]
         output_pins = [
             (4, 9), (4, 5), (4, 2), (4, 8),# LEDs
             (1, 8), (1, 13), (4, 12)  # Locks
         ]
-        self.gpio_manager = GpioManager(output_pins=output_pins, input_pins=[])
+        self.gpio_manager = GpioManager(output_pins=output_pins, input_pins=input_pins)
         self.gpio_service = GpioService(gpio_manager=self.gpio_manager)
 
         self.rfid_listener = RfidListenerService(
@@ -126,13 +129,17 @@ class Orchestrator:
         Runs the main interaction loop, asking the user for their intent
         and dispatching to the correct flow handler.
         """
-        logger.info("System ready. Starting main interaction loop.")
+        logger.info("System ready.")
+
         while True:
             try:
-                # while True:
-                #     print("try")
-                # raise Exception("Para")
-                # self.delivery_handler.start_delivery_flow()
+                logger.info("Waiting for button press to start interaction...")
+                while self.gpio_service.manager.get_pin_value(BUTTON_PIN):
+                    time.sleep(0.1) # To avoid high CPU usage
+
+                logger.info("Button pressed! Starting main conversation flow.")
+                time.sleep(0.5)
+
                 self.gpio_service.set_external_red_led(True)
                 self.tts_service.speak("Hello. I am Neobell. Are you here to deliver a package or to leave a message?")
                 text = self.stt_service.transcribe_audio(duration_seconds=7)
@@ -144,8 +151,7 @@ class Orchestrator:
                     continue
 
                 logger.info(f"User transcription: '{text}'")
-                # intent = self.gapi_service.get_initial_intent(text).value
-                intent = "PACKAGE_DELIVERY"
+                intent = self.gapi_service.get_initial_intent(text).value
                 logger.info(f"Detected intent: '{intent}'")
 
                 if intent == "VISITOR_MESSAGE":

@@ -79,29 +79,36 @@ class RfidListenerService:
         logger.info("RFID listener loop has finished.")
 
     def _process_rfid_tag(self, line: bytes):
-        """Decodes, validates, and acts upon a received RFID tag."""
+        """
+        Decodes, validates, and acts upon a received RFID tag based on the
+        exact JSON response from AWS.
+        """
         try:
             uid_string = line.decode('utf-8', errors='ignore').strip()
-            print(f"uid_string: {uid_string}")
             if not uid_string or "Leitor RFID pronto" in uid_string:
                 return
 
             logger.info(f"--- RFID TAG READ: {uid_string} ---")
             
+            logger.info(f"Validating tag '{uid_string}' with backend...")
             validation_response = self.aws_client.verify_nfc_tag(uid_string)
-            logger.info("Validating tag with backend...")
-            is_valid = True 
             
-            if is_valid:
-                logger.info(f"Tag {uid_string} is VALID. Opening collection door for 5 seconds.")
+            # Check 1: Did we get a response object?
+            # Check 2: Does the response contain the key 'is_valid' and is its value True?
+            if validation_response and validation_response.get('is_valid') is True:
+                user_id = validation_response.get("user_id_associated")
+                logger.info(f"Tag {uid_string} is VALID for user_id {user_id}. Opening collection door for 5 seconds.")
                 
+                # The action sequence: unlock, wait, lock
                 self.gpio_service.set_collect_lock(False) # Unlock
                 time.sleep(5)
                 self.gpio_service.set_collect_lock(True)  # Lock again
                 
                 logger.info("Collection door sequence complete.")
             else:
-                logger.warning(f"Tag {uid_string} is INVALID.")
+                reason = validation_response.get('reason', 'unknown') if validation_response else 'timeout'
+                logger.warning(f"Tag {uid_string} is INVALID or validation failed. Reason: {reason}")
+                # Here you could add a visual/audio feedback for failure, like a red light blink.
 
         except Exception as e:
             logger.error("Failed to process RFID tag.", exc_info=True)

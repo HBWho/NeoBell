@@ -54,25 +54,59 @@ class VisitorFlow:
         return is_recognized, name
 
     def _handle_known_visitor(self, name: str, user_id: str):
-        """Handles the flow for a known visitor using their unique ID."""
-        logger.info(f"Handling known visitor '{name}' with ID '{user_id}'.")
+        """
+        Handles the flow for a recognized visitor, checking permissions and
+        also handling data inconsistencies between local face DB and backend.
+        """
+        logger.info(f"Handling known visitor '{name}' with ID '{user_id}'. Checking backend permissions...")
         response = self.aws.check_permissions(user_id)
-        user_exists = response.get("permission_exists") if response else False
 
-        if not user_exists:
+        # First, handle the case where the AWS call itself might have failed (e.g., timeout)
+        if not response:
+            logger.error(f"No response from AWS for permission check on user {user_id}.")
+            self.tts.speak("I could not verify your permissions at this time. Please try again later.")
+            return
+
+        # Now, check the 'permission_exists' flag from the JSON response
+        if response.get('permission_exists') is False:
+            # The face was found in the local DB, but not in the cloud permissions table.
+            # This indicates an inconsistency. We'll treat them as a new user.
+            logger.warning(f"Data inconsistency found: Face ID '{user_id}' exists locally but has no permissions entry in the backend.")
+            self.tts.speak("It seems there is an issue with your profile. Let's try registering you again to fix it.")
+            
+            # Define the path to the main face database directory
             faces_db_path = Path.cwd() / "data" / "known_faces_db"
+            
+            # Delete the inconsistent local user data
+            # This assumes you have implemented delete_user in your UserManager
             self.user_manager.delete_user(user_id, faces_db_path)
+            
+            # Reroute to the new visitor registration flow
             self._handle_new_visitor_registration()
-        else:
-            permission_level = response.get("permission_level") if response else None
-            self.tts.speak(f"Hi, {name}. Let me check your permissions.")
+
+        else: # This means 'permission_exists' is True
+            # --- This is the detailed permission level check ---
+            permission_level = response.get("permission_level")
+            visitor_name_from_db = response.get("visitor_name", name) 
+
+            self.tts.speak(f"Hi, {visitor_name_from_db}. Let me check your permissions.")
+
             if permission_level == "Allowed":
-                logger.info(f"Visitor '{name}' is allowed.")
+                # Case 1: User exists and is allowed to leave a message.
+                logger.info(f"Permission for '{visitor_name_from_db}' is 'Allowed'. Proceeding to record message.")
                 self.tts.speak("You are allowed to leave a message.")
-                self._record_and_send_message(name, user_id)
-            else: # Covers "Denied" and other cases
-                logger.warning(f"Visitor '{name}' has permission '{permission_level}'. Access denied.")
-                self.tts.speak(f"Sorry, {name}. It seems you don't have permission to leave a message. Have a nice day.")
+                self._record_and_send_message(visitor_name_from_db, user_id)
+            
+            elif permission_level == "Denied":
+                # Case 2: User exists but is explicitly denied.
+                logger.warning(f"Permission for '{visitor_name_from_db}' is 'Denied'.")
+                self.tts.speak(f"Sorry, {visitor_name_from_db}, but you do not have permission to leave a message at this time. Have a nice day.")
+            
+            else:
+                # Case 3: A catch-all for unexpected states, e.g., permission_exists is true 
+                # but the permission_level is missing or has an unexpected value.
+                logger.error(f"Inconsistent permission data for user '{visitor_name_from_db}' (ID: {user_id}). Level: '{permission_level}'.")
+                self.tts.speak("I'm sorry, I could not determine your access level. Please contact the administrator.") 
 
     def _handle_new_visitor_registration(self):
         """Handles registering a new visitor, creating a unique ID, and saving face data."""

@@ -32,15 +32,18 @@ class GpioManager:
                 if chip_path not in self.config:
                     self.config[chip_path] = {}
                 
+                settings = None
                 if pin_type == 'outputs':
                     settings = gpiod.LineSettings(direction=Direction.OUTPUT)
                 else: 
                     settings = gpiod.LineSettings(
                         direction=Direction.INPUT,
-                        bias=Bias.PULL_UP
+                        # bias=Bias.PULL_UP
+                        bias=Bias.PULL_DOWN
                     )
 
-                self.config[chip_path][line_num] = settings
+                if settings:
+                    self.config[chip_path][line_num] = settings
 
         self.requests = {
             chip_path: gpiod.request_lines(chip_path, consumer=consumer, config=chip_config)
