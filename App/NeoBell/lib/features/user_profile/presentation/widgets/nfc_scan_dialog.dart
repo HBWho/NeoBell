@@ -44,7 +44,7 @@ class _NfcScanDialogState extends State<NfcScanDialog> {
         return;
       }
       await NfcManager.instance.startSession(
-        pollingOptions: {NfcPollingOption.iso14443, NfcPollingOption.iso15693},
+        pollingOptions: {...NfcPollingOption.values},
         onDiscovered: (NfcTag tag) async {
           _logger.i('Tag NFC detectada: ${tag.toString()}');
           try {
