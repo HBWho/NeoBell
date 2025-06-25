@@ -106,7 +106,8 @@ class Orchestrator:
         self.sbc_id = os.getenv("CLIENT_ID")
         self.endpoint = os.getenv("AWS_IOT_ENDPOINT")
         self.port = os.getenv("PORT")
-        self.model_path = "models/vosk-model-small-en-us-0.15"
+        # self.model_path = "models/vosk-model-small-en-us-0.15"
+        self.model_path = "models/vosk-model-en-us-0.22"
         self.cert_path = "certifications/10da83970c7ac9793d1f4c33c48f082924dc1aaccd0e8e8fd229d13b5caa210e-certificate.pem.crt"
         self.key_path = "certifications/10da83970c7ac9793d1f4c33c48f082924dc1aaccd0e8e8fd229d13b5caa210e-private.pem.key"
         self.ca_path = "certifications/AmazonRootCA1.pem"
@@ -170,6 +171,7 @@ class Orchestrator:
 
         while True:
             try:
+                self.gpio_service.set_external_red_led(True)
                 logger.info("Waiting for button press to start interaction...")
                 while self.gpio_service.manager.get_pin_value(BUTTON_PIN):
                     time.sleep(0.1) # To avoid high CPU usage
@@ -177,7 +179,6 @@ class Orchestrator:
                 logger.info("Button pressed! Starting main conversation flow.")
                 time.sleep(0.5)
 
-                self.gpio_service.set_external_red_led(True)
                 self.tts_service.speak("Hello. I am Neobell. Are you here to deliver a package or to leave a message?")
                 text = self.stt_service.transcribe_audio(duration_seconds=7)
                 logger.info(f"Text said by user: {text}")

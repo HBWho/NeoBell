@@ -31,11 +31,9 @@ THRESHOLD = 0.55 # Distance threshold for a valid match
 
 class FaceProcessing:
     def __init__(self):
-        self.recording = False
-        self.video_frames = []
-        self.audio_frames = []
+        self.stop_recording_event = threading.Event()
         self.recording_thread = None
-        self.audio_thread = None
+        self.video_writer = None
 
     # --- Face Recognition Methods ---
 
@@ -52,6 +50,74 @@ class FaceProcessing:
             logger.info(f"Picture saved to {filename}")
         finally:
             cam.release()
+
+    def _record_video_thread(self, camera_id: int):
+        """Thread worker for recording video frames. It runs until the stop event is set."""
+        logger.info("Background video recording thread started.")
+        cap = cv2.VideoCapture(camera_id)
+        if not cap.isOpened():
+            logger.error(f"Cannot open camera with ID {camera_id}.")
+            return
+
+        frame_delay = 1.0 / VIDEO_FPS 
+        try:
+            while not self.stop_recording_event.is_set():
+                loop_start_time = time.monotonic()
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                if self.video_writer:
+                    self.video_writer.write(frame)
+                
+                elapsed = time.monotonic() - loop_start_time
+                sleep_time = frame_delay - elapsed
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+        finally:
+            cap.release()
+            logger.info("Background video recording thread finished.")
+
+    def start_background_recording(self, camera_id: int, output_file: str):
+        """Starts a video recording in a background thread."""
+        if self.recording_thread and self.recording_thread.is_alive():
+            logger.warning("A recording is already in progress.")
+            return
+
+        logger.info(f"Starting background recording for camera {camera_id}. Output will be saved to {output_file}.")
+        self.stop_recording_event.clear()
+
+        # Setup VideoWriter
+        cap = cv2.VideoCapture(camera_id)
+        frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        cap.release()
+        
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        self.video_writer = cv2.VideoWriter(output_file, fourcc, VIDEO_FPS, (frame_width, frame_height))
+        
+        # Create and start the daemon thread
+        self.recording_thread = threading.Thread(target=self._record_video_thread, args=(camera_id,))
+        self.recording_thread.daemon = True
+        self.recording_thread.start()
+
+    def stop_background_recording(self):
+        """Signals the background recording thread to stop and waits for it to finish."""
+        if not self.recording_thread or not self.recording_thread.is_alive():
+            logger.info("No active recording to stop.")
+            return
+
+        logger.info("Stopping background recording...")
+        self.stop_recording_event.set()
+        self.recording_thread.join(timeout=5) # Wait up to 5s for the thread to finish
+
+        if self.recording_thread.is_alive():
+            logger.error("Recording thread did not stop in time.")
+            
+        if self.video_writer:
+            self.video_writer.release()
+            self.video_writer = None
+        
+        logger.info("Background recording stopped and file saved.")
 
     def process_results(self, dfs: list) -> tuple[bool, str | None]:
         """

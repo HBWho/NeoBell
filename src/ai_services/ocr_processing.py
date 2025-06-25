@@ -128,7 +128,7 @@ class OCRProcessing():
             if img is None:
                 raise ValueError("Could not read image file")
             
-            decoded_objects = DMReader(img)
+            decoded_objects = DMReader(img, timeout=2000)
 
             results = []
             for obj in decoded_objects:

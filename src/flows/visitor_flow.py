@@ -49,7 +49,9 @@ class VisitorFlow:
         """Handles the face recognition process and returns the result."""
         self.tts.speak("I will take a picture in... 5, 4, 3, 2, 1.")
         known_faces_db_path = str(Path.cwd() / "data" / "known_faces_db")
+        self.gpio.set_camera_led(True)
         is_recognized, name = self.face_proc.recognize_face(0, known_faces_db_path)
+        self.gpio.set_camera_led(False)
 
         return is_recognized, name
 
@@ -138,12 +140,14 @@ class VisitorFlow:
         self.tts.speak(f"Nice to meet you, {name_from_stt}. Now, I will take a few pictures for registration. Please stay still. Starting in 5, 4, 3, 2, 1.")
 
         try:
+            self.gpio.set_camera_led(True)
             for i in range(3):
                 self.tts.speak(str(3 - i))
                 time.sleep(1)
                 image_path = user_face_dir / f"image_{i}.jpg"
                 self.face_proc.take_picture(0, str(image_path))
 
+            self.gpio.set_camera_led(False)
             self.tts.speak("Registration pictures taken successfully.")
             # Use the first image for AWS user registration
             main_image_path_for_aws = str(user_face_dir / "image_0.jpg")
@@ -161,6 +165,8 @@ class VisitorFlow:
         except Exception as e:
             self.tts.speak("I'm sorry, there was an error during registration.")
             logger.error(f"It occurred an error during the registration of a new visitor ({new_user_id})")
+        finally:
+            self.gpio.set_camera_led(False)
 
     def _record_and_send_message(self, name, user_id):
         """Handles the process of recording and sending a video message."""
@@ -169,11 +175,13 @@ class VisitorFlow:
         final_video_path = f"data/visitor_message_{user_id}.mp4"
         
         try:
+            self.gpio.set_camera_led(True)
             self.face_proc.record_video_with_audio(
                 camera_id=0,
                 output_file=final_video_path,
                 duration=10,
             )
+            self.gpio.set_camera_led(False)
             
             self.tts.speak("Recording finished. Now sending your message...")
             success = self.aws.send_video_message(final_video_path, user_id, 10)
@@ -186,3 +194,6 @@ class VisitorFlow:
         except Exception as e:
             logger.error("Failed to record or send video message.", exc_info=True)
             self.tts.speak("I'm sorry, an error occurred during recording. Please try again later.")
+
+        finally:
+            self.gpio.set_camera_led(False)

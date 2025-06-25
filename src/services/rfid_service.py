@@ -80,35 +80,42 @@ class RfidListenerService:
 
     def _process_rfid_tag(self, line: bytes):
         """
-        Decodes, validates, and acts upon a received RFID tag based on the
-        exact JSON response from AWS.
+        Decodes a raw tag, formats it to a standard format (lowercase, colon-separated),
+        validates it, and acts upon the result.
         """
         try:
-            uid_string = line.decode('utf-8', errors='ignore').strip()
-            if not uid_string or "Leitor RFID pronto" in uid_string:
+            # Decode the raw bytes from serial into a string and strip whitespace
+            raw_uid = line.decode('utf-8', errors='ignore').strip()
+            
+            # Ignore empty lines or initial messages from the ESP32
+            if not raw_uid or "Leitor RFID pronto" in raw_uid:
                 return
 
-            logger.info(f"--- RFID TAG READ: {uid_string} ---")
+            # --- NEW FORMATTING LOGIC IS HERE ---
+            # 1. Convert the entire string to lowercase (e.g., "CD 01..." -> "cd 01...")
+            # 2. Replace all space characters with colons (e.g., "cd 01..." -> "cd:01:39:03")
+            formatted_uid = raw_uid.lower().replace(' ', ':')
+            # --- END OF FORMATTING LOGIC ---
+
+            logger.info(f"--- RFID TAG READ: '{raw_uid}' -> Formatted to: '{formatted_uid}' ---")
             
-            logger.info(f"Validating tag '{uid_string}' with backend...")
-            validation_response = self.aws_client.verify_nfc_tag(uid_string)
+            logger.info(f"Validating tag '{formatted_uid}' with backend...")
+            # Use the newly formatted UID for all subsequent operations
+            validation_response = self.aws_client.verify_nfc_tag(formatted_uid)
             
-            # Check 1: Did we get a response object?
-            # Check 2: Does the response contain the key 'is_valid' and is its value True?
             if validation_response and validation_response.get('is_valid') is True:
                 user_id = validation_response.get("user_id_associated")
-                logger.info(f"Tag {uid_string} is VALID for user_id {user_id}. Opening collection door for 5 seconds.")
+                logger.info(f"Tag {formatted_uid} is VALID for user_id {user_id}. Opening collection door for 5 seconds.")
                 
-                # The action sequence: unlock, wait, lock
-                self.gpio_service.set_collect_lock(False) # Unlock
+                # The action sequence
+                self.gpio_service.set_collect_lock(True) # Unlock
                 time.sleep(5)
-                self.gpio_service.set_collect_lock(True)  # Lock again
+                self.gpio_service.set_collect_lock(False) # Lock
                 
                 logger.info("Collection door sequence complete.")
             else:
                 reason = validation_response.get('reason', 'unknown') if validation_response else 'timeout'
-                logger.warning(f"Tag {uid_string} is INVALID or validation failed. Reason: {reason}")
-                # Here you could add a visual/audio feedback for failure, like a red light blink.
+                logger.warning(f"Tag {formatted_uid} is INVALID or validation failed. Reason: {reason}")
 
         except Exception as e:
-            logger.error("Failed to process RFID tag.", exc_info=True)
+            logger.error("Failed to process RFID tag.", exc_info=True) 
