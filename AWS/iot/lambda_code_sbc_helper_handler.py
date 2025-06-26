@@ -327,6 +327,10 @@ def handle_log_submission(sbc_id, payload):
     if not log_timestamp or not event_type:
         logger.error("log_timestamp ou event_type ausente no payload para log.")
         return {'error': 'Dados de log insuficientes.'}
+        
+    if not isinstance(event_details, dict):
+        logger.error("event_details deve ser um dicionário.")
+        return {'error': 'event_details deve ser um dicionário.'}
 
     try:
         sort_key_value = f"{log_timestamp}_{str(uuid.uuid4())}" 
@@ -494,7 +498,7 @@ def lambda_handler(event, context):
         result_payload_for_lambda_body = {"error": f"Tipo de ação desconhecido: {action_type}"}
         lambda_response_status_code = 400
 
-    if lambda_response_status_code == 200 and isinstance(result_payload_for_lambda_body, dict) and "error" in result_payload_for_lambda_body:
+    if isinstance(result_payload_for_lambda_body, dict) and "error" in result_payload_for_lambda_body:
         error_message = result_payload_for_lambda_body["error"]
         if "Configuração da tabela" in error_message or \
            "Erro interno" in error_message or \
@@ -503,7 +507,7 @@ def lambda_handler(event, context):
         else:
             lambda_response_status_code = 400
 
-    if response_topic and lambda_response_status_code != 200 and isinstance(result_payload_for_lambda_body, dict):
+    if response_topic and isinstance(result_payload_for_lambda_body, dict):
         try:
             iot_data_client.publish(topic=response_topic, qos=1, payload=json.dumps(result_payload_for_lambda_body))
         except Exception as e_pub_err:
