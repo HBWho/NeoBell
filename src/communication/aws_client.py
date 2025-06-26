@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from awscrt.mqtt import QoS
 from awsiot import mqtt_connection_builder
 from dotenv import load_dotenv
+from zoneinfo import ZoneInfo
 
 load_dotenv()
 
@@ -245,7 +246,7 @@ class AwsIotClient:
         """Submits a device log entry to AWS. Does not wait for a response."""
         logger.info(f"Submitting log: {summary}")
         payload = {
-            "log_timestamp": datetime.now(timezone.utc).isoformat(),
+            "log_timestamp": datetime.now(ZoneInfo("America/Sao_Paulo")).isoformat(),
             "event_type": event_type,
             "summary": summary,
             "event_details": details

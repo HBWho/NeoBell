@@ -21,25 +21,37 @@ class DeliveryFlow:
         logger.info("Delivery Flow handler initialized.")
 
     def start_delivery_flow(self):
-        """Main entry point for the delivery interaction flow."""
+        """Main entry point for the delivery interaction flow with a retry loop."""
         logger.info("Starting delivery flow...")
         self.gpio.set_external_red_led(True)
         self.gpio.set_external_green_led(False)
         
+        MAX_ATTEMPTS = 5 # Allow for 2 total attempts
+        validated_codes = None
+
         try:
-            # Step 1 & 2: Scan external package and validate all codes found
-            validated_codes = self._scan_and_validate_external_package()
+            for attempt in range(MAX_ATTEMPTS):
+                logger.info(f"Starting package scan, attempt {attempt + 1}/{MAX_ATTEMPTS}...")
+                validated_codes = self._scan_and_validate_external_package()
+                
+                if validated_codes:
+                    logger.info("Valid package code found. Proceeding with delivery.")
+                    break # Exit the retry loop on success
+                
+                logger.warning("External scan and validation failed.")
+                if attempt < MAX_ATTEMPTS - 1:
+                    self.tts.speak("I could not validate this package. Please try again, positioning the code in front of the camera.")
+                else:
+                    self.tts.speak("I could not validate a delivery code after several attempts. Aborting.")
+            
             if not validated_codes:
-                self.tts.speak("I could not find a valid delivery code on this package. Please try again later.")
-                return
+                return # End the entire flow if all attempts fail
 
-            # Step 3: Open compartment
+            # If we get here, it means the external scan was successful.
+            # The rest of the flow continues as before.
             self._handle_deposit()
-
-            # Step 4: Internal verification scan
             is_same_package = self._scan_internal_package(validated_codes)
             
-            # Step 5: Final actions
             if is_same_package:
                 self._finalize_delivery()
             else:
@@ -49,10 +61,9 @@ class DeliveryFlow:
             logger.error("An unexpected error occurred during the delivery flow.", exc_info=True)
             self.tts.speak("An unexpected error occurred. Please try again.")
         finally:
-            # Ensure hardware is in a safe, locked state
+            # Final hardware safety cleanup
             logger.info("Ensuring all hardware is in a safe final state.")
             self.gpio.set_internal_led(False)
-            # self.gpio.set_collect_lock(True)
             self.gpio.set_external_green_led(False)
             self.gpio.set_external_red_led(True)
 
@@ -61,71 +72,90 @@ class DeliveryFlow:
         Asks for and scans the package's codes, validates each one with AWS,
         and returns a list of all valid codes.
         """
-        self.tts.speak("Please show the package's QR code to the camera. The photo will be taken in 3, 2, 1.")
-        if not self.ocr.take_picture(EXTERNAL_CAMERA):
-            logger.error("Failed to take picture with external camera.")
-            return None
-        
-        all_found_codes = self.ocr.process_codes()
-        all_found_codes = []
-        all_found_codes.append("TBR188426995")
-        if not all_found_codes:
-            logger.warning("No scannable codes found on the package.")
-            return None
+        self.gpio.set_camera_led(True)
+        self.tts.speak("Please show the package's QR code to the camera. I am going to take 5 photos. The photos will be taken in 3, 2, 1.")
 
-        logger.info(f"Found {len(all_found_codes)} codes: {all_found_codes}. Validating with backend...")
-        
-        validated_codes = []
-        for code in all_found_codes:
-            response = self.aws.request_package_info("tracking_number", code)
+        max_photos = 2
+        valid = False
+        for i in range(max_photos):
+            logger.info(f"Taking internal photo attempt {i + 1}/{max_photos}...")
 
-            # Check 1: Did we get a response?
-            # Check 2: Is 'package_found' True?
-            # Check 3: Is the nested 'status' equal to 'pending'?
-            if response and response.get('package_found') is True:
-                details = response.get('details', {})
-                if details.get('status') == 'pending':
-                    logger.info(f"Code '{code}' is VALID and package status is 'pending'.")
-                    validated_codes.append(code)
+            if not self.ocr.take_picture(EXTERNAL_CAMERA):
+                logger.error("Failed to take picture with external camera.")
+                time.sleep(0.5)
+                continue
+
+            all_found_codes = self.ocr.process_codes()
+            if not all_found_codes:
+                logger.warning("No scannable codes found on the package.")
+                continue
+
+            logger.info(f"External scan attempt {i + 1} found codes: {all_found_codes}")
+            validated_codes = []
+            for code in all_found_codes:
+                response = self.aws.request_package_info("tracking_number", code)
+
+                # Check 1: Did we get a response?
+                # Check 2: Is 'package_found' True?
+                # Check 3: Is the nested 'status' equal to 'pending'?
+                if response and response.get('package_found') is True:
+                    details = response.get('details', {})
+                    if details.get('status') == 'pending':
+                        logger.info(f"Code '{code}' is VALID and package status is 'pending'.")
+                        validated_codes.append(code)
+                        valid = True
+                    else:
+                        status = details.get('status', 'unknown')
+                        logger.warning(f"Package for code '{code}' was found, but its status is '{status}', not 'pending'.")
+                        self.tts.speak(f"This package cannot be delivered, its status is {status}.")
                 else:
-                    status = details.get('status', 'unknown')
-                    logger.warning(f"Package for code '{code}' was found, but its status is '{status}', not 'pending'.")
-                    self.tts.speak(f"This package cannot be delivered, its status is {status}.")
-            else:
-                logger.warning(f"Package for code '{code}' was not found in the system.")
-        
-        if not validated_codes:
-            logger.error("No valid packages with 'pending' status were found after checking all codes.")
-            return None
+                    logger.warning(f"Package for code '{code}' was not found in the system.")
             
-        return validated_codes
+            if not validated_codes:
+                logger.error("No valid packages with 'pending' status were found after checking all codes.")
+                continue
+            else:
+                break
+        
+        self.gpio.set_camera_led(False)
+        self.tts.speak("Process finished!")
+        if valid == True:
+            return validated_codes
+
+        return None
 
     def _scan_internal_package(self, original_valid_codes: list[str]) -> bool:
         """
-        Scans the package inside the compartment and checks if any of the new codes
-        match any of the original valid codes.
+        Scans the package inside the compartment using a burst of photos
+        to increase reliability.
         """
         self.tts.speak("Thank you. I will now verify the package inside.")
-        
-        if not self.ocr.take_picture(INTERNAL_CAMERA):
-            logger.error("Failed to take picture with internal camera.")
-            return False
-            
-        internal_codes = self.ocr.process_codes()
-        internal_codes = []
-        internal_codes.append("TBR188426995")
-        if not internal_codes:
-            logger.warning("Could not find any codes in the internal scan.")
-            return False
+        logger.info("Performing internal package scan...")
 
-        logger.info(f"Internal scan found codes: {internal_codes}")
+        # Give the camera sensor time to adjust to the light
+        time.sleep(1)
+
+        max_photos = 5
+        for i in range(max_photos):
+            logger.info(f"Taking internal photo attempt {i + 1}/{max_photos}...")
+            if not self.ocr.take_picture(INTERNAL_CAMERA):
+                logger.error("Failed to take picture with internal camera.")
+                time.sleep(0.5) # Wait a bit before retrying
+                continue
+            
+            internal_codes = self.ocr.process_codes() # Processes the default temp image
+            if not internal_codes:
+                logger.warning("No codes found in this photo.")
+                continue
+
+            logger.info(f"Internal scan attempt {i + 1} found codes: {internal_codes}")
+            
+            # Use sets for an efficient check for any common element
+            if set(original_valid_codes) & set(internal_codes):
+                logger.info("Internal package verification successful. A matching code was found.")
+                return True
         
-        # Use sets for an efficient check for any common element
-        if set(original_valid_codes) & set(internal_codes):
-            logger.info("Internal package verification successful. A matching code was found.")
-            return True
-        
-        logger.warning(f"Internal scan failed. No match between original codes {original_valid_codes} and internal codes {internal_codes}.")
+        logger.error(f"Internal scan failed after {max_photos} attempts. No match found.")
         return False
 
     def _handle_deposit(self):
@@ -142,7 +172,12 @@ class DeliveryFlow:
 
     def _finalize_delivery(self):
         """Handles the successful delivery confirmation and secures the package."""
-        self.tts.speak("Package validated. Thank you for your delivery. The compartment will now close.")
+        self.tts.speak("Package validated. Thank you for your delivery.")
+        self.aws.submit_log(
+            event_type="package_detected", 
+            summary="Package delivered", 
+            details={}
+        )
         self.gpio.set_internal_led(True)
         self.gpio.set_external_green_led(False)
         self.gpio.set_external_red_led(True)
@@ -178,7 +213,11 @@ class DeliveryFlow:
         """Handles a failed internal verification."""
         self.tts.speak("The package inside does not seem to match the one scanned outside. Please remove the package and close the door.")
         # Wait for user to remove package. You might add a sensor check here in the future.
+        self.gpio.set_external_green_led(True)
+        self.gpio.set_external_red_led(False)
         self.gpio.set_external_lock(True) # Unlock the compartment
         time.sleep(7)
         self.gpio.set_external_lock(False) # Lock the compartment
+        self.gpio.set_external_green_led(False)
+        self.gpio.set_external_red_led(True)
         logger.warning("Package rejected due to mismatch.")

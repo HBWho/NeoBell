@@ -3,7 +3,7 @@ import logging.handlers
 import os
 
 LOG_FILENAME = "app.log"
-LOG_LEVEL = logging.INFO  
+LOG_LEVEL = logging.DEBUG
 
 def setup_logging():
     """

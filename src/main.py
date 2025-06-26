@@ -106,8 +106,8 @@ class Orchestrator:
         self.sbc_id = os.getenv("CLIENT_ID")
         self.endpoint = os.getenv("AWS_IOT_ENDPOINT")
         self.port = os.getenv("PORT")
-        # self.model_path = "models/vosk-model-small-en-us-0.15"
-        self.model_path = "models/vosk-model-en-us-0.22"
+        self.model_path = "models/vosk-model-small-en-us-0.15"
+        # self.model_path = "models/vosk-model-en-us-0.22"
         self.cert_path = "certifications/10da83970c7ac9793d1f4c33c48f082924dc1aaccd0e8e8fd229d13b5caa210e-certificate.pem.crt"
         self.key_path = "certifications/10da83970c7ac9793d1f4c33c48f082924dc1aaccd0e8e8fd229d13b5caa210e-private.pem.key"
         self.ca_path = "certifications/AmazonRootCA1.pem"
@@ -168,6 +168,11 @@ class Orchestrator:
         and dispatching to the correct flow handler.
         """
         logger.info("System ready.")
+        self.aws_client.submit_log(
+            event_type="device_status_change",
+            summary="Boot Notification", 
+            details= {}
+        )
 
         while True:
             try:
@@ -177,6 +182,11 @@ class Orchestrator:
                     time.sleep(0.1) # To avoid high CPU usage
 
                 logger.info("Button pressed! Starting main conversation flow.")
+                self.aws_client.submit_log(
+                    event_type="doorbell_pressed",
+                    summary="Doorbell pressed", 
+                    details= {}
+                )
                 time.sleep(0.5)
 
                 self.tts_service.speak("Hello. I am Neobell. Are you here to deliver a package or to leave a message?")
@@ -193,8 +203,18 @@ class Orchestrator:
                 logger.info(f"Detected intent: '{intent}'")
 
                 if intent == "VISITOR_MESSAGE":
+                    self.aws_client.submit_log(
+                        event_type="Visitor Flow Started", 
+                        summary="Visitor Flow Started", 
+                        details={}
+                    )
                     self.visitor_handler.start_interaction()
                 elif intent == "PACKAGE_DELIVERY":
+                    self.aws_client.submit_log(
+                        event_type="Delivery Flow Started", 
+                        summary="Delivery Flow Started", 
+                        details={}
+                    )
                     self.delivery_handler.start_delivery_flow()
                 else:
                     self.tts_service.speak("I'm sorry, I didn't understand. Please say 'delivery' or 'message'.")
@@ -207,6 +227,11 @@ class Orchestrator:
                 break
             except Exception as e:
                 logger.error("An error occurred during the interaction loop.", exc_info=True)
+                self.aws_client.submit_log(
+                    event_type="error_occurred",
+                    summary="Error occurred", 
+                    details= {}
+                )
                 self.tts_service.speak("An unexpected error occurred. Restarting interaction.")
                 time.sleep(2)
 

@@ -41,13 +41,26 @@ class FaceProcessing:
         """Captures a single high-resolution picture and saves it to a file."""
         cam = cv2.VideoCapture(camera_id)
         try:
-            cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-            cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+            cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+
+            for i in range(10):
+                result, image = cam.read()
+
+                if not result:
+                    logger.warning(f"Failed to read a warmup frame (attempt {i+1}).")
+                    break
+
+            logger.info("Capturing final image...")
             result, image = cam.read()
+
             if not result:
-                raise ValueError("Failed to capture image from camera")
+                logger.error("Failed to capture the final image from the camera.")
+                return False
+
             cv2.imwrite(filename, image)
-            logger.info(f"Picture saved to {filename}")
+            logger.info(f"Image successfully saved")
+            return True
         finally:
             cam.release()
 

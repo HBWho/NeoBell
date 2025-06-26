@@ -47,9 +47,9 @@ class VisitorFlow:
 
     def _handle_recognition(self):
         """Handles the face recognition process and returns the result."""
+        self.gpio.set_camera_led(True)
         self.tts.speak("I will take a picture in... 5, 4, 3, 2, 1.")
         known_faces_db_path = str(Path.cwd() / "data" / "known_faces_db")
-        self.gpio.set_camera_led(True)
         is_recognized, name = self.face_proc.recognize_face(0, known_faces_db_path)
         self.gpio.set_camera_led(False)
 
@@ -61,6 +61,11 @@ class VisitorFlow:
         also handling data inconsistencies between local face DB and backend.
         """
         logger.info(f"Handling known visitor '{name}' with ID '{user_id}'. Checking backend permissions...")
+        self.aws.submit_log(
+            event_type="visitor_detected",
+            summary="Known visitor detected", 
+            details= {}
+        )
         response = self.aws.check_permissions(user_id)
 
         # First, handle the case where the AWS call itself might have failed (e.g., timeout)
@@ -113,9 +118,17 @@ class VisitorFlow:
     def _handle_new_visitor_registration(self):
         """Handles registering a new visitor, creating a unique ID, and saving face data."""
         logger.info("New visitor detected.")
+        self.aws.submit_log(
+            event_type="visitor_detected",
+            summary="Unknown visitor detected", 
+            details= {}
+        )
         self.tts.speak("It seems I don't know you. Would you like to register?")
         text = self.stt.transcribe_audio(duration_seconds=5)
-        intent = self.gapi.get_initial_intent(text).value
+        formatted_text = text.lower().replace(" ", "")
+        intent = "No"
+        if "yes" in formatted_text:
+            intent = "Yes"
 
         if intent == "No":
             logger.info("New visitor didn't choice to register yourself.")
@@ -160,6 +173,11 @@ class VisitorFlow:
             )
             self.tts.speak(f"Thank you, {name_from_stt}. Your registration is complete.")
             logger.info(f"New visitor {name_from_stt} was registered successfully.")
+            self.aws.submit_log(
+                event_type="user_access_granted",
+                summary="New visitor registered", 
+                details= {}
+            )
             self._record_and_send_message(name_from_stt, new_user_id)
 
         except Exception as e:
@@ -187,6 +205,11 @@ class VisitorFlow:
             success = self.aws.send_video_message(final_video_path, user_id, 10)
 
             if success:
+                self.aws.submit_log(
+                    event_type="video_message_recorded",
+                    summary="Video Message Recorded", 
+                    details= {}
+                )
                 self.tts.speak(f"Your message was successfully sent, {name}. Thank you and have a nice day!")
             else:
                 self.tts.speak("I'm sorry, there was a problem sending your message.")

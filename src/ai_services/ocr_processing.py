@@ -1,4 +1,5 @@
 import cv2
+import time
 import re
 import logging
 from typing import List, Tuple, Union, Optional
@@ -88,11 +89,22 @@ class OCRProcessing():
         try:
             cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
             cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+            for i in range(10):
+                result, image = cam.read()
+
+                if not result:
+                    logger.warning(f"Failed to read a warmup frame (attempt {i+1}).")
+                    break
+
+            logger.info("Capturing final image...")
             result, image = cam.read()
 
             if not result:
-                raise ValueError("Failed to capture image from camera")
+                logger.error("Failed to capture the final image from the camera.")
+                return False
+
             cv2.imwrite(TEMP_IMAGE, image)
+            logger.info(f"Image successfully saved")
             return True
         except Exception as e:
             logger.error(f"Error capturing image: {e}")
