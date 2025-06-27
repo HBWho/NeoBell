@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:neobell/core/utils/date_formatter_utils.dart';
 import '../blocs/video_message_bloc.dart';
 import '../blocs/video_message_event.dart';
 
@@ -36,10 +37,7 @@ class _VideoMessageFiltersState extends State<VideoMessageFilters> {
               border: OutlineInputBorder(),
             ),
             items: const [
-              DropdownMenuItem(
-                value: null,
-                child: Text('All Devices'),
-              ),
+              DropdownMenuItem(value: null, child: Text('All Devices')),
               // TODO: Add devices from state
             ],
             onChanged: (value) {
@@ -57,7 +55,7 @@ class _VideoMessageFiltersState extends State<VideoMessageFilters> {
                   icon: const Icon(Icons.calendar_today),
                   label: Text(
                     startDate != null
-                        ? '${startDate!.day}/${startDate!.month}/${startDate!.year}'
+                        ? formatDateOnly(startDate!)
                         : 'Start Date',
                   ),
                 ),
@@ -68,9 +66,7 @@ class _VideoMessageFiltersState extends State<VideoMessageFilters> {
                   onPressed: () => _selectDate(context, false),
                   icon: const Icon(Icons.calendar_today),
                   label: Text(
-                    endDate != null
-                        ? '${endDate!.day}/${endDate!.month}/${endDate!.year}'
-                        : 'End Date',
+                    endDate != null ? formatDateOnly(endDate!) : 'End Date',
                   ),
                 ),
               ),
@@ -84,18 +80,9 @@ class _VideoMessageFiltersState extends State<VideoMessageFilters> {
               border: OutlineInputBorder(),
             ),
             items: const [
-              DropdownMenuItem(
-                value: null,
-                child: Text('All Messages'),
-              ),
-              DropdownMenuItem(
-                value: true,
-                child: Text('Viewed'),
-              ),
-              DropdownMenuItem(
-                value: false,
-                child: Text('Not Viewed'),
-              ),
+              DropdownMenuItem(value: null, child: Text('All Messages')),
+              DropdownMenuItem(value: true, child: Text('Viewed')),
+              DropdownMenuItem(value: false, child: Text('Not Viewed')),
             ],
             onChanged: (value) {
               setState(() {
@@ -107,10 +94,7 @@ class _VideoMessageFiltersState extends State<VideoMessageFilters> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              TextButton(
-                onPressed: _clearFilters,
-                child: const Text('Clear'),
-              ),
+              TextButton(onPressed: _clearFilters, child: const Text('Clear')),
               const SizedBox(width: 16),
               ElevatedButton(
                 onPressed: _applyFilters,
@@ -154,13 +138,13 @@ class _VideoMessageFiltersState extends State<VideoMessageFilters> {
 
   void _applyFilters() {
     context.read<VideoMessageBloc>().add(
-          GetVideoMessagesEvent(
-            sbcId: selectedDevice,
-            startDate: startDate,
-            endDate: endDate,
-            isViewed: isViewed,
-          ),
-        );
+      GetVideoMessagesEvent(
+        sbcId: selectedDevice,
+        startDate: startDate,
+        endDate: endDate,
+        isViewed: isViewed,
+      ),
+    );
     Navigator.pop(context);
   }
 }

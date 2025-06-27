@@ -1,3 +1,5 @@
+import 'package:neobell/core/utils/date_formatter_utils.dart';
+
 import '../../domain/entities/video_message.dart';
 
 class VideoMessageModel extends VideoMessage {
@@ -18,7 +20,7 @@ class VideoMessageModel extends VideoMessage {
       messageId: json['message_id'],
       sbcId: json['sbc_id'],
       deviceFriendlyName: json['device_friendly_name'] ?? '',
-      recordedAt: DateTime.parse(json['recorded_at']),
+      recordedAt: parseApiTimestamp(json['recorded_at']),
       durationSec: json['duration_sec'] ?? 0,
       visitorName: json['visitor_name'],
       visitorId: json['visitor_face_tag_id'],

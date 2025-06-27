@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:neobell/core/utils/date_formatter_utils.dart';
 import '../../domain/entities/activity_log.dart';
 
 class ActivityLogItem extends StatelessWidget {
@@ -31,7 +32,7 @@ class ActivityLogItem extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              _formatTimestamp(activityLog.timestamp),
+              formatRelativeTime(activityLog.timestamp),
               style: const TextStyle(color: Colors.grey, fontSize: 12),
             ),
             if (activityLog.sbcIdRelated != null) ...[
@@ -128,20 +129,5 @@ class ActivityLogItem extends StatelessWidget {
         .split('_')
         .map((word) => word[0].toUpperCase() + word.substring(1))
         .join(' ');
-  }
-
-  String _formatTimestamp(DateTime timestamp) {
-    final now = DateTime.now();
-    final difference = now.difference(timestamp);
-
-    if (difference.inDays > 0) {
-      return '${difference.inDays}d ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m ago';
-    } else {
-      return 'Just now';
-    }
   }
 }

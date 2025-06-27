@@ -1,3 +1,5 @@
+import 'package:neobell/core/utils/date_formatter_utils.dart';
+
 import '../../domain/entities/visitor_permission.dart';
 import '../../domain/entities/visitor_permission_with_image.dart';
 
@@ -18,8 +20,8 @@ class VisitorPermissionWithImageModel extends VisitorPermissionWithImage {
       permissionLevel: PermissionLevel.fromString(
         json['permission_level'] as String,
       ),
-      createdAt: DateTime.parse(json['created_at'] as String),
-      lastUpdatedAt: DateTime.parse(json['last_updated_at'] as String),
+      createdAt: parseApiTimestamp(json['created_at']),
+      lastUpdatedAt: parseApiTimestamp(json['last_updated_at']),
       imageUrl: json['image_url'] as String,
     );
   }

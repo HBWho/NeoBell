@@ -1,3 +1,5 @@
+import 'package:neobell/core/utils/date_formatter_utils.dart';
+
 import '../../domain/entities/package_delivery.dart';
 
 class PackageDeliveryModel extends PackageDelivery {
@@ -23,12 +25,9 @@ class PackageDeliveryModel extends PackageDelivery {
       carrier: json['carrier'] as String?,
       status: PackageDeliveryStatus.fromApiValue(json['status'] as String),
       sbcIdReceivedAt: json['sbc_id_received_at'] as String?,
-      addedAt: DateTime.parse(json['added_at'] as String),
-      expectedDate: DateTime.parse(json['expected_date'] as String),
-      receivedAtTimestamp:
-          json['received_at_timestamp'] != null
-              ? DateTime.parse(json['received_at_timestamp'] as String)
-              : null,
+      addedAt: parseApiTimestamp(json['added_at']),
+      expectedDate: parseApiTimestamp(json['expected_date']),
+      receivedAtTimestamp: parseApiTimestamp(json['received_at_timestamp']),
     );
   }
 
@@ -47,6 +46,7 @@ class PackageDeliveryModel extends PackageDelivery {
     };
   }
 
+  @override
   PackageDeliveryModel copyWith({
     String? userId,
     String? orderId,

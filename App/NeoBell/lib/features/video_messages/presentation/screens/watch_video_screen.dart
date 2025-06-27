@@ -2,6 +2,7 @@ import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:neobell/core/utils/date_formatter_utils.dart';
 import 'package:video_player/video_player.dart';
 import '../../../../core/common/widgets/base_screen_widget.dart';
 import '../../../../core/utils/show_snackbar.dart';
@@ -269,9 +270,7 @@ class _WatchVideoScreenState extends State<WatchVideoScreen> {
             children: [
               const Icon(Icons.access_time, size: 16),
               const SizedBox(width: 8),
-              Text(
-                '${message.recordedAt.day}/${message.recordedAt.month}/${message.recordedAt.year} às ${message.recordedAt.hour.toString().padLeft(2, '0')}:${message.recordedAt.minute.toString().padLeft(2, '0')}',
-              ),
+              Text(formatShortTimestamp(message.recordedAt)),
             ],
           ),
           const SizedBox(height: 4),
@@ -309,14 +308,8 @@ class _WatchVideoScreenState extends State<WatchVideoScreen> {
                 ),
                 _buildInfoRow('Message ID:', message.messageId),
                 _buildInfoRow('Device:', message.deviceFriendlyName),
-                _buildInfoRow(
-                  'Date:',
-                  '${message.recordedAt.day}/${message.recordedAt.month}/${message.recordedAt.year}',
-                ),
-                _buildInfoRow(
-                  'Time:',
-                  '${message.recordedAt.hour.toString().padLeft(2, '0')}:${message.recordedAt.minute.toString().padLeft(2, '0')}',
-                ),
+                _buildInfoRow('Date:', formatDateOnly(message.recordedAt)),
+                _buildInfoRow('Time:', formatShortTimeOnly(message.recordedAt)),
                 _buildInfoRow('Duration:', '${message.durationSec} seconds'),
                 _buildInfoRow('Viewed:', message.isViewed ? 'Yes' : 'No'),
               ],

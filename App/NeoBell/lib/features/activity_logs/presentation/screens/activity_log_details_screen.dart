@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:neobell/core/utils/date_formatter_utils.dart';
 import '../../../../core/common/widgets/base_screen_widget.dart';
 import '../../../../core/utils/show_snackbar.dart';
 import '../../domain/entities/activity_log.dart';
@@ -165,7 +166,7 @@ class _ActivityLogDetailsScreenState extends State<ActivityLogDetailsScreen> {
             ),
             _buildInfoRow(
               'Timestamp',
-              _formatFullTimestamp(activityLog.timestamp),
+              formatFullTimestamp(activityLog.timestamp),
             ),
             if (activityLog.sbcIdRelated != null)
               _buildInfoRow('Device ID', activityLog.sbcIdRelated!),
@@ -194,7 +195,7 @@ class _ActivityLogDetailsScreenState extends State<ActivityLogDetailsScreen> {
                 _formatKey(entry.key),
                 entry.value?.toString() ?? 'N/A',
               );
-            }).toList(),
+            }),
           ],
         ),
       ),
@@ -275,7 +276,7 @@ class _ActivityLogDetailsScreenState extends State<ActivityLogDetailsScreen> {
 
     return CircleAvatar(
       radius: 24,
-      backgroundColor: color.withOpacity(0.1),
+      backgroundColor: color.withValues(alpha: 0.1),
       child: Icon(iconData, color: color, size: 24),
     );
   }
@@ -292,12 +293,5 @@ class _ActivityLogDetailsScreenState extends State<ActivityLogDetailsScreen> {
         .split('_')
         .map((word) => word[0].toUpperCase() + word.substring(1))
         .join(' ');
-  }
-
-  String _formatFullTimestamp(DateTime timestamp) {
-    return '${timestamp.day}/${timestamp.month}/${timestamp.year} '
-        '${timestamp.hour.toString().padLeft(2, '0')}:'
-        '${timestamp.minute.toString().padLeft(2, '0')}:'
-        '${timestamp.second.toString().padLeft(2, '0')}';
   }
 }

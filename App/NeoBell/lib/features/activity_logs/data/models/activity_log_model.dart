@@ -1,3 +1,5 @@
+import 'package:neobell/core/utils/date_formatter_utils.dart';
+
 import '../../domain/entities/activity_log.dart';
 
 class ActivityLogModel extends ActivityLog {
@@ -17,9 +19,7 @@ class ActivityLogModel extends ActivityLog {
       logSourceId: json['log_source_id'] ?? '',
       timestampUuid: json['timestamp_uuid'] ?? '',
       eventType: json['event_type'] ?? '',
-      timestamp: DateTime.parse(
-        json['timestamp'] ?? DateTime.now().toIso8601String(),
-      ),
+      timestamp: parseApiTimestamp(json['timestamp']),
       summary: json['summary'] ?? '',
       sbcIdRelated: json['sbc_id_related'],
       userIdRelated: json['user_id_related'],

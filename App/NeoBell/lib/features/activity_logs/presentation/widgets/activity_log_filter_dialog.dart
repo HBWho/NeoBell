@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:neobell/core/utils/date_formatter_utils.dart';
 import '../../domain/entities/activity_log_filter.dart';
 
 class ActivityLogFilterDialog extends StatefulWidget {
@@ -151,7 +152,9 @@ class _ActivityLogFilterDialogState extends State<ActivityLogFilterDialog> {
               child: OutlinedButton(
                 onPressed: () => _selectDate(context, true),
                 child: Text(
-                  _startDate != null ? _formatDate(_startDate!) : 'Start Date',
+                  _startDate != null
+                      ? formatDateOnly(_startDate!)
+                      : 'Start Date',
                 ),
               ),
             ),
@@ -160,7 +163,7 @@ class _ActivityLogFilterDialogState extends State<ActivityLogFilterDialog> {
               child: OutlinedButton(
                 onPressed: () => _selectDate(context, false),
                 child: Text(
-                  _endDate != null ? _formatDate(_endDate!) : 'End Date',
+                  _endDate != null ? formatDateOnly(_endDate!) : 'End Date',
                 ),
               ),
             ),
@@ -228,10 +231,6 @@ class _ActivityLogFilterDialogState extends State<ActivityLogFilterDialog> {
         .split('_')
         .map((word) => word[0].toUpperCase() + word.substring(1))
         .join(' ');
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
   }
 
   void _clearFilters() {

@@ -1,3 +1,5 @@
+import 'package:neobell/core/utils/date_formatter_utils.dart';
+
 import '../../domain/entities/device.dart';
 import '../../domain/entities/device_user.dart';
 import 'device_user_model.dart';
@@ -25,10 +27,7 @@ class DeviceModel extends Device {
           'Resident',
       firmwareVersion: json['firmware_version'] as String?,
       ownerUserId: json['owner_user_id'] as String?,
-      registeredAt:
-          json['registered_at'] != null
-              ? DateTime.parse(json['registered_at'] as String)
-              : null,
+      registeredAt: parseApiTimestamp(json['registered_at']),
       users:
           json['users'] != null
               ? (json['users'] as List<dynamic>)

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:neobell/core/utils/date_formatter_utils.dart';
 
 import '../../domain/entities/create_package_delivery.dart';
 import '../../domain/entities/package_delivery.dart';
@@ -121,9 +122,7 @@ class _AddPackageDeliveryDialogState extends State<AddPackageDeliveryDialog> {
                       border: OutlineInputBorder(),
                       suffixIcon: Icon(Icons.calendar_today),
                     ),
-                    child: Text(
-                      '${_expectedDate.day}/${_expectedDate.month}/${_expectedDate.year}',
-                    ),
+                    child: Text(formatDateOnly(_expectedDate)),
                   ),
                 ),
                 const SizedBox(height: 16),

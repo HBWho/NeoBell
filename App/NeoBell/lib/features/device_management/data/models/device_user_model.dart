@@ -1,3 +1,5 @@
+import 'package:neobell/core/utils/date_formatter_utils.dart';
+
 import '../../domain/entities/device_user.dart';
 
 class DeviceUserModel extends DeviceUser {
@@ -15,7 +17,7 @@ class DeviceUserModel extends DeviceUser {
       name: json['name'] as String,
       email: json['email'] as String,
       role: json['role'] as String,
-      accessGrantedAt: DateTime.parse(json['access_granted_at'] as String),
+      accessGrantedAt: parseApiTimestamp(json['access_granted_at']),
     );
   }
 

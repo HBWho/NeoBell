@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:neobell/core/utils/date_formatter_utils.dart';
 import '../../../../core/common/widgets/base_screen_widget.dart';
 import '../../../../core/utils/show_snackbar.dart';
 import '../../../../core/utils/show_confimation_dialog.dart';
@@ -240,7 +241,10 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> {
             if (device.firmwareVersion != null)
               _buildInfoRow('Firmware Version', device.firmwareVersion!),
             if (device.registeredAt != null)
-              _buildInfoRow('Registered At', _formatDate(device.registeredAt!)),
+              _buildInfoRow(
+                'Registered At',
+                formatShortTimestamp(device.registeredAt!),
+              ),
           ],
         ),
       ),
@@ -332,7 +336,7 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> {
         Row(
           children: [
             Text(
-              'Access granted at: ${_formatDate(user.accessGrantedAt)}',
+              'Access granted at: ${formatShortTimestamp(user.accessGrantedAt)}',
               style: const TextStyle(fontSize: 12),
             ),
 
@@ -435,12 +439,5 @@ class _DeviceDetailsScreenState extends State<DeviceDetailsScreen> {
             ],
           ),
     );
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}/'
-        '${date.month.toString().padLeft(2, '0')}/'
-        '${date.year} ${date.hour.toString().padLeft(2, '0')}:'
-        '${date.minute.toString().padLeft(2, '0')}';
   }
 }

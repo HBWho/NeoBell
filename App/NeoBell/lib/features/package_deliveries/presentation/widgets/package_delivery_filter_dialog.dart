@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:neobell/core/utils/date_formatter_utils.dart';
 
 import '../../domain/entities/package_delivery.dart';
 import '../../domain/entities/package_delivery_filter.dart';
@@ -105,7 +106,7 @@ class _PackageDeliveryFilterDialogState
                       ),
                       child: Text(
                         _startDate != null
-                            ? '${_startDate!.day}/${_startDate!.month}/${_startDate!.year}'
+                            ? formatDateOnly(_startDate!)
                             : 'Select date',
                       ),
                     ),
@@ -123,7 +124,7 @@ class _PackageDeliveryFilterDialogState
                       ),
                       child: Text(
                         _endDate != null
-                            ? '${_endDate!.day}/${_endDate!.month}/${_endDate!.year}'
+                            ? formatDateOnly(_endDate!)
                             : 'Select date',
                       ),
                     ),
