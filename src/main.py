@@ -3,6 +3,7 @@ import time
 import logging
 import sounddevice as sd
 from pathlib import Path
+from phrases import MAIN_LOOP
 from config.logging_config import setup_logging
 
 setup_logging()
@@ -11,19 +12,25 @@ from services.stt import STTService
 from services.tts import TTSService
 from services.api import GAPI
 from services.user_manager import UserManager
-from services.servo_service import ServoService 
+from services.servo_service import ServoService
 from services.rfid_service import RfidListenerService
+from services.interaction_manager import InteractionManager
 from ai_services.face_processing import FaceProcessing
 from ai_services.ocr_processing import OCRProcessing
 from communication.aws_client import AwsIotClient
-from hal.gpio import GpioManager 
+from hal.gpio import GpioManager
 from hal.pin_service import GpioService
 from flows.visitor_flow import VisitorFlow
 from flows.delivery_flow import DeliveryFlow
 
-BUTTON_PIN = (1, 12) # Physical Pin 33 
+BUTTON_PIN = (1, 12)  # Physical Pin 33
+
+STT_HEAVY_MODE = (
+    True  # Set to True if using a heavy STT model like vosk-model-en-us-0.22
+)
 
 logger = logging.getLogger(__name__)
+
 
 def find_stt_device_id(device_name_substring: str) -> int | None:
     """
@@ -41,25 +48,33 @@ def find_stt_device_id(device_name_substring: str) -> int | None:
         devices = sd.query_devices()
         for i, device in enumerate(devices):
             # We are looking for an INPUT device that contains our target name
-            is_input = device.get('max_input_channels', 0) > 0
-            name_matches = device_name_substring.lower() in device.get('name', '').lower()
-            
+            is_input = device.get("max_input_channels", 0) > 0
+            name_matches = (
+                device_name_substring.lower() in device.get("name", "").lower()
+            )
+
             if is_input and name_matches:
-                logger.info(f"Found matching STT device: '{device['name']}' with index {i}.")
+                logger.info(
+                    f"Found matching STT device: '{device['name']}' with index {i}."
+                )
                 return i
     except Exception as e:
         logger.error("Could not query audio devices.", exc_info=True)
         return None
-        
-    logger.warning(f"Could not find an input device matching '{device_name_substring}'. STT might not work.")
+
+    logger.warning(
+        f"Could not find an input device matching '{device_name_substring}'. STT might not work."
+    )
     logger.warning(f"Available devices: {devices}")
     return None
+
 
 class Orchestrator:
     """
     The main application class that initializes all services, handlers,
     and orchestrates the primary user interaction flow.
     """
+
     def __init__(self):
         """Initializes configuration. Services are initialized in __enter__."""
         logger.info("Orchestrator initializing...")
@@ -81,9 +96,9 @@ class Orchestrator:
         logger.info("Entering runtime context. Initializing services...")
         self._init_services()
         self.aws_client.connect()
-        self.rfid_listener.start()
+        # self.rfid_listener.start()
         self._init_flow_handlers(self.aws_client)
-        return self # Return the instance to be used in the 'with' block
+        return self  # Return the instance to be used in the 'with' block
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit: ensures all resources are released."""
@@ -98,7 +113,10 @@ class Orchestrator:
         logger.info("All services shut down gracefully.")
         # If an exception occurred, it can be logged here
         if exc_type:
-            logger.error("Application exited with an exception.", exc_info=(exc_type, exc_val, exc_tb))
+            logger.error(
+                "Application exited with an exception.",
+                exc_info=(exc_type, exc_val, exc_tb),
+            )
 
     def _load_config(self):
         """Loads all necessary configuration from environment variables."""
@@ -106,8 +124,13 @@ class Orchestrator:
         self.sbc_id = os.getenv("CLIENT_ID")
         self.endpoint = os.getenv("AWS_IOT_ENDPOINT")
         self.port = os.getenv("PORT")
-        self.model_path = "models/vosk-model-small-en-us-0.15"
-        # self.model_path = "models/vosk-model-en-us-0.22"
+
+        # self.model_path = "models/vosk-model-small-en-us-0.15"
+        self.model_path = (
+            "models/vosk-model-en-us-0.22"
+            if STT_HEAVY_MODE
+            else "models/vosk-model-small-en-us-0.15"
+        )
         self.cert_path = "certifications/10da83970c7ac9793d1f4c33c48f082924dc1aaccd0e8e8fd229d13b5caa210e-certificate.pem.crt"
         self.key_path = "certifications/10da83970c7ac9793d1f4c33c48f082924dc1aaccd0e8e8fd229d13b5caa210e-private.pem.key"
         self.ca_path = "certifications/AmazonRootCA1.pem"
@@ -116,32 +139,52 @@ class Orchestrator:
         """Initializes singleton services used across the application."""
         logger.info("Initializing core services (TTS, STT, etc.)...")
         user_db_file = Path.cwd() / "data" / "users.json"
-        self.aws_client = AwsIotClient(self.sbc_id, self.endpoint, self.port, self.cert_path, self.key_path, self.ca_path)
+        self.aws_client = AwsIotClient(
+            self.sbc_id,
+            self.endpoint,
+            self.port,
+            self.cert_path,
+            self.key_path,
+            self.ca_path,
+        )
         self.user_manager = UserManager(db_path=user_db_file)
         self.gapi_service = GAPI(debug_mode=True)
-        self.tts_service = TTSService(lang="en-us", variant="m7", speed=160, pitch=45)
+        self.tts_service = TTSService()
         self.face_processor = FaceProcessing()
         self.ocr_service = OCRProcessing()
         self.servo_service = ServoService(pwm_chip=1, pwm_channel=0)
 
-        stt_device_id = find_stt_device_id(device_name_substring="USB PnP Sound Device")
+        # stt_device_id = find_stt_device_id(device_name_substring="USB PnP Sound Device")
+        stt_device_id = 3
         if stt_device_id is None:
-            logger.critical("Could not find a suitable STT audio device. STT will be disabled.")
+            logger.critical(
+                "Could not find a suitable STT audio device. STT will be disabled."
+            )
             self.stt_service = None
         else:
-            self.stt_service = STTService(model_path=self.model_path, device_id=stt_device_id)
+            self.stt_service = STTService(
+                model_path=self.model_path, device_id=stt_device_id
+            )
 
         input_pins = [BUTTON_PIN]
         output_pins = [
-            (4, 9), (4, 5), (4, 2), (4, 8),# LEDs
-            (1, 8), (1, 13), (4, 12)  # Locks
+            (4, 9),
+            (4, 5),
+            (4, 2),
+            (4, 8),  # LEDs
+            (1, 8),
+            (1, 13),
+            (4, 12),  # Locks
         ]
         self.gpio_manager = GpioManager(output_pins=output_pins, input_pins=input_pins)
         self.gpio_service = GpioService(gpio_manager=self.gpio_manager)
 
         self.rfid_listener = RfidListenerService(
-            aws_client=self.aws_client, 
-            gpio_service=self.gpio_service
+            aws_client=self.aws_client, gpio_service=self.gpio_service
+        )
+
+        self.interaction_manager = InteractionManager(
+            tts_service=self.tts_service, stt_service=self.stt_service
         )
 
     def _init_flow_handlers(self, aws_client):
@@ -156,7 +199,8 @@ class Orchestrator:
             "gapi_service": self.gapi_service,
             "face_processor": self.face_processor,
             "ocr_processing": self.ocr_service,
-            "servo_service": self.servo_service
+            "servo_service": self.servo_service,
+            "interaction_manager": self.interaction_manager,
         }
 
         self.visitor_handler = VisitorFlow(**common_services)
@@ -170,54 +214,82 @@ class Orchestrator:
         logger.info("System ready.")
         self.aws_client.submit_log(
             event_type="device_status_change",
-            summary="Boot Notification", 
-            details= {}
+            summary="Boot Notification",
+            details={"Status": "System ready"},
         )
 
         while True:
             try:
                 self.gpio_service.set_external_red_led(True)
                 logger.info("Waiting for button press to start interaction...")
+
+                # Wait for the button to be pressed
                 while self.gpio_service.manager.get_pin_value(BUTTON_PIN):
-                    time.sleep(0.1) # To avoid high CPU usage
+                    time.sleep(0.1)
 
                 logger.info("Button pressed! Starting main conversation flow.")
                 self.aws_client.submit_log(
                     event_type="doorbell_pressed",
-                    summary="Doorbell pressed", 
-                    details= {}
+                    summary="Doorbell pressed",
+                    details={
+                        "Button": "Pressed",
+                        "Timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    },
                 )
                 time.sleep(0.5)
 
-                self.tts_service.speak("Hello. I am Neobell. Are you here to deliver a package or to leave a message?")
-                text = self.stt_service.transcribe_audio(duration_seconds=7)
-                logger.info(f"Text said by user: {text}")
+                # Intent detection loop (allows retry on unclear intent)
+                max_intent_attempts = 3
+                attempt = 0
+                text = None
+                intent = None
+                while attempt < max_intent_attempts:
+                    if attempt == 0:
+                        # First attempt: use greeting
+                        text = self.interaction_manager.ask_question(
+                            MAIN_LOOP["greeting"],
+                            listen_duration_seconds=7,
+                            max_attempts=1,
+                        )
+                    else:
+                        # Retry: just prompt for delivery/message
+                        text = self.interaction_manager.ask_question(
+                            MAIN_LOOP["unclear_intent"],
+                            listen_duration_seconds=7,
+                            max_attempts=1,
+                        )
+                    if not text:
+                        attempt += 1
+                        continue
+                    intent = self.gapi_service.get_initial_intent(text).value
+                    logger.info(f"Detected intent: '{intent}'")
+                    if intent in ("VISITOR_MESSAGE", "PACKAGE_DELIVERY"):
+                        break
+                    attempt += 1
 
-                if not text:
-                    self.tts_service.speak("I'm sorry, I didn't hear anything. Let's try again.")
-                    time.sleep(1)
+                if not text or intent not in ("VISITOR_MESSAGE", "PACKAGE_DELIVERY"):
+                    self.aws_client.submit_log(
+                        event_type="intent_failed",
+                        summary="Intent Detection Failed",
+                        details={"Attempts": attempt, "LastText": text or "(no input)"},
+                    )
+                    time.sleep(2)
                     continue
-
-                logger.info(f"User transcription: '{text}'")
-                intent = self.gapi_service.get_initial_intent(text).value
-                logger.info(f"Detected intent: '{intent}'")
 
                 if intent == "VISITOR_MESSAGE":
                     self.aws_client.submit_log(
-                        event_type="Visitor Flow Started", 
-                        summary="Visitor Flow Started", 
-                        details={}
+                        event_type="visitor_flow_started",
+                        summary="Visitor Flow Started",
+                        details={"IntentText": text},
                     )
                     self.visitor_handler.start_interaction()
                 elif intent == "PACKAGE_DELIVERY":
                     self.aws_client.submit_log(
-                        event_type="Delivery Flow Started", 
-                        summary="Delivery Flow Started", 
-                        details={}
+                        event_type="delivery_flow_started",
+                        summary="Delivery Flow Started",
+                        details={"IntentText": text},
                     )
                     self.delivery_handler.start_delivery_flow()
-                else:
-                    self.tts_service.speak("I'm sorry, I didn't understand. Please say 'delivery' or 'message'.")
 
                 logger.info("Flow finished. Returning to idle state in 5 seconds...")
                 time.sleep(5)
@@ -226,14 +298,17 @@ class Orchestrator:
                 logger.info("User interrupted the loop. Shutting down.")
                 break
             except Exception as e:
-                logger.error("An error occurred during the interaction loop.", exc_info=True)
+                logger.error(
+                    "An error occurred during the interaction loop.", exc_info=True
+                )
                 self.aws_client.submit_log(
                     event_type="error_occurred",
-                    summary="Error occurred", 
-                    details= {}
+                    summary="Error occurred",
+                    details={"Exception": str(e)},
                 )
-                self.tts_service.speak("An unexpected error occurred. Restarting interaction.")
+                self.tts_service.speak(MAIN_LOOP["error"])
                 time.sleep(2)
+
 
 def main():
     """The main entry point of the application."""
@@ -244,10 +319,13 @@ def main():
             app.run_interaction_loop()
     except KeyboardInterrupt:
         logger.info("Application interrupted by user (Ctrl+C).")
-    except Exception as e:
-        logger.critical("A fatal error occurred, forcing application to exit.", exc_info=True)
+    except Exception:
+        logger.critical(
+            "A fatal error occurred, forcing application to exit.", exc_info=True
+        )
     finally:
         logger.info("System has shut down.")
+
 
 if __name__ == "__main__":
     main()

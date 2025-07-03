@@ -1,6 +1,7 @@
 import time
 import os
 import logging
+from src.phrases import DELIVERY
 
 logger = logging.getLogger(__name__)
 
@@ -8,8 +9,10 @@ logger = logging.getLogger(__name__)
 EXTERNAL_CAMERA = 0
 INTERNAL_CAMERA = 2
 
+
 class DeliveryFlow:
-    """Handles the entire package delivery workflow."""
+    """Handles the entire package delivery workflow using refactored services."""
+
     def __init__(self, **services):
         """Initializes the flow with all its required service dependencies."""
         self.aws = services.get("aws_client")
@@ -18,166 +21,175 @@ class DeliveryFlow:
         self.ocr = services.get("ocr_processing")
         self.servo = services.get("servo_service")
         self.face_proc = services.get("face_processor")
+        self.interaction_manager = services.get("interaction_manager")
         logger.info("Delivery Flow handler initialized.")
 
     def start_delivery_flow(self):
-        """Main entry point for the delivery interaction flow with a retry loop."""
+        """
+        Main entry point for the delivery interaction flow.
+        Guides the user through package scanning, validation, compartment handling,
+        and final confirmation. All messages are centralized and user-friendly.
+        """
         logger.info("Starting delivery flow...")
         self.gpio.set_external_red_led(True)
         self.gpio.set_external_green_led(False)
-        
-        MAX_ATTEMPTS = 5 # Allow for 2 total attempts
-        validated_codes = None
 
         try:
-            for attempt in range(MAX_ATTEMPTS):
-                logger.info(f"Starting package scan, attempt {attempt + 1}/{MAX_ATTEMPTS}...")
-                validated_codes = self._scan_and_validate_external_package()
-                
-                if validated_codes:
-                    logger.info("Valid package code found. Proceeding with delivery.")
-                    break # Exit the retry loop on success
-                
-                logger.warning("External scan and validation failed.")
-                if attempt < MAX_ATTEMPTS - 1:
-                    self.tts.speak("I could not validate this package. Please try again, positioning the code in front of the camera.")
+            validated_code = self._scan_and_validate_external_package()
+            if validated_code:
+                logger.info(
+                    f"Valid package code '{validated_code}' found. Proceeding with delivery."
+                )
+                self._handle_compartment_door(DELIVERY["compartment"])
+                is_same_package = self._scan_internal_package(validated_code)
+                if is_same_package:
+                    self._finalize_delivery()
                 else:
-                    self.tts.speak("I could not validate a delivery code after several attempts. Aborting.")
-            
-            if not validated_codes:
-                return # End the entire flow if all attempts fail
-
-            # If we get here, it means the external scan was successful.
-            # The rest of the flow continues as before.
-            self._handle_deposit()
-            is_same_package = self._scan_internal_package(validated_codes)
-            
-            if is_same_package:
-                self._finalize_delivery()
+                    logger.info("Package rejected due to mismatch.")
+                    self._handle_compartment_door(DELIVERY["cancel_inside"])
             else:
-                self._reject_package()
+                self.tts.speak_async(DELIVERY["cancel"])
 
-        except Exception as e:
-            logger.error("An unexpected error occurred during the delivery flow.", exc_info=True)
-            self.tts.speak("An unexpected error occurred. Please try again.")
+        except Exception:
+            logger.error(
+                "An unexpected error occurred during the delivery flow.", exc_info=True
+            )
+            self.tts.speak(DELIVERY["error"])
+
         finally:
-            # Final hardware safety cleanup
             logger.info("Ensuring all hardware is in a safe final state.")
             self.gpio.set_internal_led(False)
             self.gpio.set_external_green_led(False)
             self.gpio.set_external_red_led(True)
 
-    def _scan_and_validate_external_package(self) -> list[str] | None:
+    def _scan_and_validate_external_package(self) -> str | None:
         """
-        Asks for and scans the package's codes, validates each one with AWS,
-        and returns a list of all valid codes.
+        Scans for a package, validates it with AWS, and handles user feedback.
+        Retries up to 3 times if validation fails.
         """
         self.gpio.set_camera_led(True)
-        self.tts.speak("Please show the package's QR code to the camera. I am going to take 5 photos. The photos will be taken in 3, 2, 1.")
 
-        max_photos = 2
-        valid = False
-        for i in range(max_photos):
-            logger.info(f"Taking internal photo attempt {i + 1}/{max_photos}...")
+        # Announce the initial action to the user without blocking the scan
+        self.tts.speak_async(DELIVERY["start"])
 
-            if not self.ocr.take_picture(EXTERNAL_CAMERA):
-                logger.error("Failed to take picture with external camera.")
-                time.sleep(0.5)
-                continue
+        def aws_checker_callback(code):
+            return self.aws.request_package_info("tracking_number", code)
 
-            all_found_codes = self.ocr.process_codes()
-            if not all_found_codes:
-                logger.warning("No scannable codes found on the package.")
-                continue
+        def on_timeout():
+            self.tts.speak_async(
+                "Move it closer to the camera and move it gently to help with scanning."
+            )
 
-            logger.info(f"External scan attempt {i + 1} found codes: {all_found_codes}")
-            validated_codes = []
-            for code in all_found_codes:
-                response = self.aws.request_package_info("tracking_number", code)
+        scan_timeout = 10.0
+        max_scan_attempts = 3
 
-                # Check 1: Did we get a response?
-                # Check 2: Is 'package_found' True?
-                # Check 3: Is the nested 'status' equal to 'pending'?
-                if response and response.get('package_found') is True:
-                    details = response.get('details', {})
-                    if details.get('status') == 'pending':
-                        logger.info(f"Code '{code}' is VALID and package status is 'pending'.")
-                        validated_codes.append(code)
-                        valid = True
-                    else:
-                        status = details.get('status', 'unknown')
-                        logger.warning(f"Package for code '{code}' was found, but its status is '{status}', not 'pending'.")
-                        self.tts.speak(f"This package cannot be delivered, its status is {status}.")
-                else:
-                    logger.warning(f"Package for code '{code}' was not found in the system.")
-            
-            if not validated_codes:
-                logger.error("No valid packages with 'pending' status were found after checking all codes.")
-                continue
+        logger.info("External package scan attempt")
+
+        result = self.ocr.find_validated_code(
+            camera_id=EXTERNAL_CAMERA,
+            fast_mode=True,
+            code_verification_callback=aws_checker_callback,
+            timeout_sec=scan_timeout,
+            retries=max_scan_attempts,
+            on_timeout=on_timeout,
+        )
+
+        if result["status"] == "success":
+            self.gpio.set_camera_led(False)
+            return result["code"]
+        elif result["status"] == "not_accepted":
+            logger.warning(
+                f"External package scan failed. Response: {result['response']}"
+            )
+            if self.interaction_manager.ask_yes_no(DELIVERY["not_accepted"]):
+                return self._scan_and_validate_external_package()
+        else:
+            if self.interaction_manager.ask_yes_no(DELIVERY["timeout"]):
+                logger.info("User chose to retry the external package scan.")
+                return self._scan_and_validate_external_package()
             else:
-                break
-        
-        self.gpio.set_camera_led(False)
-        self.tts.speak("Process finished!")
-        if valid == True:
-            return validated_codes
+                logger.info("User chose not to retry the external package scan.")
 
+        self.gpio.set_camera_led(False)
         return None
 
-    def _scan_internal_package(self, original_valid_codes: list[str]) -> bool:
+    def _scan_internal_package(self, original_valid_codes: str) -> bool:
         """
-        Scans the package inside the compartment using a burst of photos
-        to increase reliability.
+        Scans the package inside the compartment and checks if the code matches the original.
+        All user messages are centralized and clear.
         """
-        self.tts.speak("Thank you. I will now verify the package inside.")
-        logger.info("Performing internal package scan...")
+        self.tts.speak_async(DELIVERY["checking"])
+        logger.info(
+            f"Performing internal package scan, looking for: {original_valid_codes}"
+        )
+        self.gpio.set_internal_led(True)
 
-        # Give the camera sensor time to adjust to the light
-        time.sleep(1)
+        def local_checker_callback(code_to_check):
+            return {
+                "package_same": True if code_to_check in original_valid_codes else False
+            }
 
-        max_photos = 5
-        for i in range(max_photos):
-            logger.info(f"Taking internal photo attempt {i + 1}/{max_photos}...")
-            if not self.ocr.take_picture(INTERNAL_CAMERA):
-                logger.error("Failed to take picture with internal camera.")
-                time.sleep(0.5) # Wait a bit before retrying
-                continue
-            
-            internal_codes = self.ocr.process_codes() # Processes the default temp image
-            if not internal_codes:
-                logger.warning("No codes found in this photo.")
-                continue
+        def on_timeout():
+            self._handle_compartment_door(DELIVERY["internal_fail"])
 
-            logger.info(f"Internal scan attempt {i + 1} found codes: {internal_codes}")
-            
-            # Use sets for an efficient check for any common element
-            if set(original_valid_codes) & set(internal_codes):
-                logger.info("Internal package verification successful. A matching code was found.")
-                return True
-        
-        logger.error(f"Internal scan failed after {max_photos} attempts. No match found.")
+        scan_timeout = 6.0
+        max_scan_attempts = 3
+
+        logger.info("Internal package scan attempt")
+
+        result = self.ocr.find_validated_code(
+            camera_id=INTERNAL_CAMERA,
+            fast_mode=False,
+            code_verification_callback=local_checker_callback,
+            timeout_sec=scan_timeout,
+            retries=max_scan_attempts,
+            on_timeout=on_timeout,
+        )
+
+        if result["status"] == "success":
+            logger.info(
+                "Internal package verification successful. A matching code was found."
+            )
+            self.gpio.set_internal_led(False)
+            return True
+
+        logger.error(
+            f"Internal scan failed after all attempts. No match found for {original_valid_codes}."
+        )
+        if self.interaction_manager.ask_yes_no(DELIVERY["internal_fail"]):
+            logger.info("User chose to retry the internal package scan.")
+            self._handle_compartment_door(DELIVERY["internal_adjust"])
+            return self._scan_internal_package(original_valid_codes)
+        else:
+            logger.info("User chose not to retry the internal package scan.")
+
+        self.gpio.set_internal_led(False)
         return False
 
-    def _handle_deposit(self):
-        """Opens the compartment and instructs the user."""
-        self.tts.speak("Delivery code accepted. Please place the package inside the compartment, with the label facing up.")
+    def _handle_compartment_door(self, tts_text: str):
+        """
+        Opens the compartment and instructs the user with a clear, centralized message.
+        """
+        self.tts.speak_async(tts_text, override=True)
         self.gpio.set_external_red_led(False)
         self.gpio.set_external_green_led(True)
-        self.gpio.set_internal_led(True)
-        self.gpio.set_external_lock(True) # Unlock the compartment
-        time.sleep(7) # Give the user time to place the package
-        self.gpio.set_external_lock(False) # Lock the compartment
+        self.gpio.set_external_lock(True)
+        time.sleep(14)
+        self.gpio.set_external_lock(False)
         self.gpio.set_external_green_led(False)
         self.gpio.set_external_red_led(True)
 
     def _finalize_delivery(self):
-        """Handles the successful delivery confirmation and secures the package."""
-        self.tts.speak("Package validated. Thank you for your delivery.")
+        """
+        Handles the successful delivery confirmation and secures the package.
+        All user feedback is centralized and friendly.
+        """
+        self.tts.speak_async(DELIVERY["finalize"], override=True)
         self.aws.submit_log(
-            event_type="package_detected", 
-            summary="Package delivered", 
-            details={}
+            event_type="package_detected", summary="Package delivered", details={}
         )
+        logger.info("Finalizing delivery...")
+
         self.gpio.set_internal_led(True)
         self.gpio.set_external_green_led(False)
         self.gpio.set_external_red_led(True)
@@ -187,37 +199,19 @@ class DeliveryFlow:
         os.makedirs(os.path.dirname(video_filepath), exist_ok=True)
 
         try:
-            # 1. Start recording in the background using the internal camera
             self.face_proc.start_background_recording(INTERNAL_CAMERA, video_filepath)
-            
-            # Give it a brief moment to initialize the camera
             time.sleep(1)
-
-            # 2. Execute the blocking action: closing the hatch
-            self.servo.openHatch() # Open the hatch
+            self.servo.openHatch()
             time.sleep(5)
-            self.servo.closeHatch() # Close the hatch
-            
-        except Exception as e:
-            logger.error("An error occurred during the finalization sequence.", exc_info=True)
+            self.servo.closeHatch()
+        except Exception:
+            logger.error(
+                "An error occurred during the finalization sequence.", exc_info=True
+            )
         finally:
-            # 3. No matter what, stop the recording
             self.face_proc.stop_background_recording()
-            
-            # Turn off the internal light after recording is done
             self.gpio.set_internal_led(False)
 
-        logger.info(f"Delivery finalized and package secured. Capture saved to {video_filepath}")
-
-    def _reject_package(self):
-        """Handles a failed internal verification."""
-        self.tts.speak("The package inside does not seem to match the one scanned outside. Please remove the package and close the door.")
-        # Wait for user to remove package. You might add a sensor check here in the future.
-        self.gpio.set_external_green_led(True)
-        self.gpio.set_external_red_led(False)
-        self.gpio.set_external_lock(True) # Unlock the compartment
-        time.sleep(7)
-        self.gpio.set_external_lock(False) # Lock the compartment
-        self.gpio.set_external_green_led(False)
-        self.gpio.set_external_red_led(True)
-        logger.warning("Package rejected due to mismatch.")
+        logger.info(
+            f"Delivery finalized and package secured. Capture saved to {video_filepath}"
+        )

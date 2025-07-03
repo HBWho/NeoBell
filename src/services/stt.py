@@ -22,6 +22,7 @@ class STTService:
         self.stt_model = None
         self.model_path = model_path
         self.device_id = device_id
+        self.load_model()
 
     def load_model(self):
         try:
