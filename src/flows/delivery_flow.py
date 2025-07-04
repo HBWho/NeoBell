@@ -1,6 +1,8 @@
 import time
 import os
 import logging
+from threading import Thread
+
 # from src.phrases import DELIVERY
 from phrases import DELIVERY
 
@@ -199,20 +201,32 @@ class DeliveryFlow:
         video_filepath = os.path.join("data", "captures", video_filename)
         os.makedirs(os.path.dirname(video_filepath), exist_ok=True)
 
-        try:
-            self.face_proc.start_background_recording(INTERNAL_CAMERA, video_filepath)
-            time.sleep(1)
-            self.servo.openHatch()
-            time.sleep(5)
-            self.servo.closeHatch()
-        except Exception:
-            logger.error(
-                "An error occurred during the finalization sequence.", exc_info=True
-            )
-        finally:
-            self.face_proc.stop_background_recording()
-            self.gpio.set_internal_led(False)
+        def hatch_sequence():
+            try:
+                self.face_proc.start_background_recording(
+                    INTERNAL_CAMERA, video_filepath
+                )
+                time.sleep(1)
+                self.servo.openHatch()
+                time.sleep(5)
 
-        logger.info(
-            f"Delivery finalized and package secured. Capture saved to {video_filepath}"
-        )
+                def close_hatch():
+                    self.servo.closeHatch()
+
+                close_thread = Thread(target=close_hatch, daemon=True)
+                close_thread.start()
+                time.sleep(2)  # Wait some time for the hatch to close for recording
+            except Exception:
+                logger.error(
+                    "An error occurred during the finalization sequence.", exc_info=True
+                )
+            finally:
+                self.face_proc.stop_background_recording()
+                self.gpio.set_internal_led(False)
+                logger.info(
+                    f"Delivery finalized and package secured. Capture saved to {video_filepath}"
+                )
+
+        # Run the finalize sequence in a separate thread
+        finalize_thread = Thread(target=hatch_sequence)
+        finalize_thread.start()

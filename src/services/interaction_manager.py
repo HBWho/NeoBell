@@ -1,4 +1,5 @@
 import logging
+
 # from src.phrases import YESNO
 from phrases import YESNO
 
@@ -38,7 +39,7 @@ class InteractionManager:
             transcribed_text = self.stt.transcribe_audio(
                 duration_seconds=max_listen_duration
             )
-            if not transcribed_text:
+            if not transcribed_text and attempt < max_attempts - 1:
                 logger.warning("No text was transcribed from the user's response.")
                 self.tts.speak(YESNO["not_understood"])
                 continue
