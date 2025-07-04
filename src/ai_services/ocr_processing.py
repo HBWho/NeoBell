@@ -215,10 +215,10 @@ class OCRProcessing:
                     detection_worker(dm_detector, tiles, "dm_slice")
                     detection_worker(pyzbar_detector, tiles, "pyzbar_slice")
 
-                cv2.imshow("Camera", processed_frame)
-                if cv2.waitKey(1) & 0xFF == ord("q"):
-                    stop_event.set()
-                    break
+                # cv2.imshow("Camera", processed_frame)
+                # if cv2.waitKey(1) & 0xFF == ord("q"):
+                #     stop_event.set()
+                #     break
 
                 # Brief sleep to yield CPU and prevent hammering the camera
                 time.sleep(0.2)
@@ -352,7 +352,7 @@ class OCRProcessing:
             if self.cap:
                 self.cap.release()
                 self.cap = None
-            cv2.destroyAllWindows()
+            # cv2.destroyAllWindows()
 
             processor.join(
                 timeout=1.0

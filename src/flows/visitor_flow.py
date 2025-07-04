@@ -2,10 +2,12 @@ import time
 import os
 import logging
 from pathlib import Path
-from src.phrases import VISITOR
+# from src.phrases import VISITOR
+from phrases import VISITOR
 
 logger = logging.getLogger(__name__)
 
+CAMERA_ID = 2
 
 class VisitorFlow:
     """
@@ -84,7 +86,7 @@ class VisitorFlow:
         self.gpio.set_camera_led(True)
         self.tts.speak(VISITOR["face_recognition"])
         known_faces_db_path = str(Path.cwd() / "data" / "known_faces_db")
-        is_recognized, name = self.face_proc.recognize_face(0, known_faces_db_path)
+        is_recognized, name = self.face_proc.recognize_face(CAMERA_ID, known_faces_db_path)
         self.gpio.set_camera_led(False)
         return is_recognized, name
 
@@ -236,7 +238,7 @@ class VisitorFlow:
                 self.tts.speak(str(3 - i))
                 time.sleep(1)
                 image_path = user_face_dir / f"image_{i}.jpg"
-                self.face_proc.take_picture(0, str(image_path))
+                self.face_proc.take_picture(CAMERA_ID, str(image_path))
 
             self.gpio.set_camera_led(False)
             self.tts.speak_async(VISITOR["register_photo_complete"])
@@ -284,7 +286,7 @@ class VisitorFlow:
             # Step 1: Record video with audio
             self.gpio.set_camera_led(True)
             self.face_proc.record_video_with_audio(
-                camera_id=0,
+                camera_id=CAMERA_ID,
                 output_file=final_video_path,
                 duration=10,
             )

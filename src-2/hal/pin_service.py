@@ -2,8 +2,8 @@ from hal.gpio import GpioManager
 import time
 
 # --- Hardware Pinout Definition ---
-EXTERNAL_GREEN_LED_PIN = (4, 5)
-EXTERNAL_RED_LED_PIN = (4, 9)
+EXTERNAL_GREEN_LED_PIN = (4, 9)
+EXTERNAL_RED_LED_PIN = (4, 5)
 CAMERA_LED_PIN = (4, 8)
 INTERNAL_LED_PIN = (4, 2)
 EXTERNAL_LOCK_PIN = (1, 8)

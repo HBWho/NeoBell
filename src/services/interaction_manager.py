@@ -1,5 +1,6 @@
 import logging
-from src.phrases import YESNO
+# from src.phrases import YESNO
+from phrases import YESNO
 
 # Import the service classes for type hinting
 # from tts_service import TTSService

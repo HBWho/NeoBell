@@ -1,13 +1,14 @@
 import time
 import os
 import logging
-from src.phrases import DELIVERY
+# from src.phrases import DELIVERY
+from phrases import DELIVERY
 
 logger = logging.getLogger(__name__)
 
 # Constants for camera IDs
-EXTERNAL_CAMERA = 0
-INTERNAL_CAMERA = 2
+EXTERNAL_CAMERA = 2
+INTERNAL_CAMERA = 0
 
 
 class DeliveryFlow:
@@ -130,7 +131,7 @@ class DeliveryFlow:
             }
 
         def on_timeout():
-            self._handle_compartment_door(DELIVERY["internal_fail"])
+            self._handle_compartment_door(DELIVERY["internal_adjust"])
 
         scan_timeout = 6.0
         max_scan_attempts = 3
@@ -139,7 +140,7 @@ class DeliveryFlow:
 
         result = self.ocr.find_validated_code(
             camera_id=INTERNAL_CAMERA,
-            fast_mode=False,
+            fast_mode=True,
             code_verification_callback=local_checker_callback,
             timeout_sec=scan_timeout,
             retries=max_scan_attempts,
