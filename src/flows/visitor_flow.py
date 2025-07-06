@@ -43,43 +43,54 @@ class VisitorFlow:
 
     def start_interaction(self):
         """
-        Entry point for the visitor flow. Guides the user through recognition,
-        permission check, and registration if needed. Handles all error cases
-        gracefully and logs key events.
-        """
-        """
-        Main entry point for the visitor interaction flow.
+        Main entry point for the visitor interaction flow, using centralized phrases.
         """
         logger.info("Starting visitor interaction flow...")
-
         self.tts.speak(VISITOR["start"])
         time.sleep(1)
 
-        # Step 1: Analyze the live stream to determine the situation
-        status, recognized_user_id = self._handle_recognition()
-
-        # Step 2: Handle the result based on the status from the stream analysis
-        if status == "KNOWN_PERSON":
-            logger.info(f"Known person detected: {recognized_user_id}. Checking permissions.")
-            user_data = self.user_manager.get_user_by_id(recognized_user_id)
+        max_retries = 3
+        for attempt in range(max_retries):
+            logger.info(f"Recognition attempt #{attempt + 1}")
             
-            # Handle case where user is in face DB but not user DB (data inconsistency)
-            if not user_data:
-                logger.error(f"Inconsistency: Face for user_id '{recognized_user_id}' recognized, but user not in users.json.")
-                self.tts.speak("I'm sorry, a system error occurred with your profile.")
-                return
+            status, recognized_user_id = self._handle_recognition()
 
-            user_name = user_data.get("name", "a known visitor")
-            self._handle_known_visitor(user_name, recognized_user_id)
+            # --- Success Cases ---
+            if status == "KNOWN_PERSON":
+                logger.info(f"Known person detected: {recognized_user_id}.")
+                user_data = self.user_manager.get_user_by_id(recognized_user_id)
+                if not user_data:
+                    logger.error(f"Inconsistency: Face for '{recognized_user_id}' found, but user not in users.json.")
+                    self.tts.speak(VISITOR["system_error"])
+                    break 
+                
+                user_name = user_data.get("name", "a known visitor")
+                self._handle_known_visitor(user_name, recognized_user_id)
+                break 
 
-        elif status == "UNKNOWN_PERSON":
-            logger.info("Unknown person detected. Starting registration flow.")
-            self._handle_new_visitor_registration()
+            elif status == "UNKNOWN_PERSON":
+                logger.info("Unknown person detected. Starting registration flow.")
+                self._handle_new_visitor_registration()
+                break 
 
-        elif status == "NO_FACE": # TODO
-            logger.warning("Could not recognize anyone in the given time.")
-            self.tts.speak("I'm sorry, I couldn't see anyone clearly. Please press the button to try again.")
-            # The flow ends here, waiting for another button press.
+            # --- NO_FACE Retry Logic with New Phrases ---
+            elif status == "NO_FACE":
+                logger.warning(f"Could not recognize anyone on attempt {attempt + 1}.")
+                self.tts.speak(VISITOR["recognition_fail"])
+                
+                if attempt == max_retries - 1:
+                    self.tts.speak(VISITOR["max_retries_fail"])
+                    break
+                
+                # Ask the user to retry using the new phrase
+                if self.interaction_manager.ask_yes_no(VISITOR["ask_retry"]):
+                    self.tts.speak(VISITOR["confirm_retry"])
+                else:
+                    # Reuse the standard goodbye phrase
+                    self.tts.speak(VISITOR["register_no"]) 
+                    break
+
+        logger.info("Visitor interaction flow finished.")
 
     def _handle_recognition(self) -> tuple[str, str | None]:
         """

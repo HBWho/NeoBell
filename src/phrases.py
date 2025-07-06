@@ -8,7 +8,7 @@ MAIN_LOOP = {
 
 VISITOR = {
     "start": "Hi! Please look at the camera.",
-    "face_recognition": "Taking your picture. 3, 2, 1.",
+    "face_recognition": "Analyzing your face, please hold still for a moment.",
     "known_hello": "Hello {visitor_name}, checking your access.",
     "allowed": "You can leave a message.",
     "recording": "You will have 10 seconds to leave your message. Starting in 3, 2, 1.",
@@ -30,6 +30,10 @@ VISITOR = {
     "profile_issue": "There is an issue with your profile. Let's try registering again.",
     "perm_later": "Couldn't check your permissions now. Please try later.",
     "ask_message": "Would you like to leave a message?",
+    "recognition_fail": "I'm sorry, I couldn't see anyone clearly.",
+    "ask_retry": "Would you like to try again?",
+    "confirm_retry": "Okay, let's try one more time. Please look straight at the camera.",
+    "max_retries_fail": "I'm still having trouble seeing a face. If you would like to try again, press the main button to start over."
 }
 
 DELIVERY = {
