@@ -127,9 +127,9 @@ class Orchestrator:
 
         # self.model_path = "models/vosk-model-small-en-us-0.15"
         self.model_path = (
-            "models/vosk-model-en-us-0.22"
+            "base"
             if STT_HEAVY_MODE
-            else "models/vosk-model-small-en-us-0.15"
+            else "tiny"
         )
         self.cert_path = "certifications/10da83970c7ac9793d1f4c33c48f082924dc1aaccd0e8e8fd229d13b5caa210e-certificate.pem.crt"
         self.key_path = "certifications/10da83970c7ac9793d1f4c33c48f082924dc1aaccd0e8e8fd229d13b5caa210e-private.pem.key"
@@ -155,7 +155,6 @@ class Orchestrator:
         self.servo_service = ServoService(pwm_chip=1, pwm_channel=0)
 
         stt_device_id = find_stt_device_id(device_name_substring="USB PnP Sound Device")
-        # stt_device_id = 3
         if stt_device_id is None:
             logger.critical(
                 "Could not find a suitable STT audio device. STT will be disabled."
