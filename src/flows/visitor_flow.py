@@ -32,17 +32,13 @@ class VisitorFlow:
         """
         Initializes the flow with all its required service dependencies.
         """
-        self.aws = services.get(
-            "aws_client"
-        )  # AWS IoT client for logging and permission checks
+        self.aws = services.get("aws_client")  # AWS IoT client for logging and permission checks
         self.user_manager = services.get("user_manager")  # Local user DB manager
         self.gpio = services.get("gpio_service")  # GPIO hardware abstraction
         self.tts = services.get("tts_service")  # Text-to-Speech service
         self.stt = services.get("stt_service")  # Speech-to-Text service
         self.face_proc = services.get("face_processor")  # Face recognition/recording
-        self.interaction_manager = services.get(
-            "interaction_manager"
-        )  # Centralized interaction logic
+        self.interaction_manager = services.get("interaction_manager")  # Centralized interaction logic
         logger.info("Visitor Flow handler initialized.")
 
     def start_interaction(self):
@@ -56,39 +52,54 @@ class VisitorFlow:
         """
         logger.info("Starting visitor interaction flow...")
 
-        # Step 1: Greet and prompt user to look at the camera
         self.tts.speak(VISITOR["start"])
         time.sleep(1)
 
-        # Step 2: Attempt face recognition
-        is_recognized, recognized_user_id = self._handle_recognition()
+        # Step 1: Analyze the live stream to determine the situation
+        status, recognized_user_id = self._handle_recognition()
 
-        # Step 3: If recognized, check permissions; else, start registration
-        if is_recognized:
+        # Step 2: Handle the result based on the status from the stream analysis
+        if status == "KNOWN_PERSON":
+            logger.info(f"Known person detected: {recognized_user_id}. Checking permissions.")
             user_data = self.user_manager.get_user_by_id(recognized_user_id)
-            if user_data:
-                user_name = user_data.get("name", "Unknown")
-                self._handle_known_visitor(user_name, recognized_user_id)
-            else:
-                # Local DB inconsistency: face found but no user record
-                logger.error(
-                    f"Inconsistency: Face for user_id '{recognized_user_id}' recognized, but user not in users.json."
-                )
+            
+            # Handle case where user is in face DB but not user DB (data inconsistency)
+            if not user_data:
+                logger.error(f"Inconsistency: Face for user_id '{recognized_user_id}' recognized, but user not in users.json.")
                 self.tts.speak("I'm sorry, a system error occurred with your profile.")
-        else:
+                return
+
+            user_name = user_data.get("name", "a known visitor")
+            self._handle_known_visitor(user_name, recognized_user_id)
+
+        elif status == "UNKNOWN_PERSON":
+            logger.info("Unknown person detected. Starting registration flow.")
             self._handle_new_visitor_registration()
 
-    def _handle_recognition(self):
+        elif status == "NO_FACE": # TODO
+            logger.warning("Could not recognize anyone in the given time.")
+            self.tts.speak("I'm sorry, I couldn't see anyone clearly. Please press the button to try again.")
+            # The flow ends here, waiting for another button press.
+
+    def _handle_recognition(self) -> tuple[str, str | None]:
         """
-        Activates camera LED, prompts user, and attempts face recognition.
-        Returns (is_recognized: bool, user_id_or_name: str).
+        Analyzes the live stream and returns the status of who was seen.
+        This is now the single point of contact for face analysis in this flow.
         """
         self.gpio.set_camera_led(True)
         self.tts.speak(VISITOR["face_recognition"])
-        known_faces_db_path = str(Path.cwd() / "data" / "known_faces_db")
-        is_recognized, name = self.face_proc.recognize_face(CAMERA_ID, known_faces_db_path)
+        db_path = str(Path.cwd() / "data" / "known_faces_db")
+        
+        # The core of the new logic: call the stream analyzer
+        status, user_id = self.face_proc.analyze_live_stream(
+            camera_id=CAMERA_ID,
+            db_path=db_path,
+            timeout_seconds=5 # This is the timeout period you wanted
+        )
+        
         self.gpio.set_camera_led(False)
-        return is_recognized, name
+        return status, user_id
+        
 
     def _handle_known_visitor(self, name: str, user_id: str):
         """
@@ -171,105 +182,81 @@ class VisitorFlow:
 
     def _handle_new_visitor_registration(self):
         """
-        Handles the registration flow for a new (unrecognized) visitor:
-        - Asks if the user wants to register (up to 3 attempts)
-        - If yes, asks for name (up to 3 attempts)
-        - Creates user and face folder, takes photos
-        - Registers user in AWS and local DB
-        - Confirms before recording a message
-        - Handles all errors and logs events
+        Handles registration for a new visitor using the simplified photo capture flow.
         """
-        logger.info("New visitor detected.")
-        self.aws.submit_log(
-            event_type="visitor_detected",
-            summary="Unknown visitor detected",
-            details={},
-        )
+        logger.info("New visitor detected, starting registration process.")
+        self.aws.submit_log(event_type="visitor_detected", summary="Unknown visitor detected", details={})
 
-        # Step 1: Ask if the user wants to register (up to 3 attempts)
-        register = self.interaction_manager.ask_yes_no(
-            VISITOR["unknown"], override=True
-        )
-        if not register:
-            logger.info("New visitor didn't choose to register.")
+        # Ask if the user wants to register
+        if not self.interaction_manager.ask_yes_no(VISITOR["unknown"], override=True):
+            logger.info("New visitor declined to register.")
             self.tts.speak(VISITOR["register_no"])
             return
 
-        logger.info("New visitor decided to register.")
-        # Step 2: Ask for the user's name, confirm, and allow retries until accepted or user gives up
+        # Get the user's name
+        name_from_stt = None
         for attempt in range(3):
-            name_from_stt = self.interaction_manager.ask_question(
-                VISITOR["register_yes"],
-                override=True,
-                max_listen_duration=7,
-                max_attempts=3,
+            raw_name = self.interaction_manager.ask_question(
+                VISITOR["register_yes"] if attempt == 0 else "Let's try again. Please say your name clearly.",
+                override=True, max_listen_duration=7
             )
-            logger.info(f"New Visitor name from STT: {name_from_stt}")
-            if not name_from_stt:
-                self.tts.speak(VISITOR["register_no"])
-                return
-            # Confirm the name with the user
-            confirm_text = (
-                f"I understood your name as {name_from_stt}. Is that correct?"
-            )
-            if self.interaction_manager.ask_yes_no(confirm_text, override=True):
-                break
-            elif attempt == 2:
-                # User didn't confirm after 3 attempts
-                logger.warning("User failed to confirm their name after 3 attempts.")
-                self.tts.speak(VISITOR["register_name_fail"])
-                return
-            self.tts.speak("Let's try again. Please say your name clearly.")
-
-        # Step 3: Create user in local DB
+            if raw_name:
+                confirm_text = f"I understood your name as {raw_name}. Is that correct?"
+                if self.interaction_manager.ask_yes_no(confirm_text, override=True):
+                    name_from_stt = raw_name
+                    break
+        
+        if not name_from_stt:
+            logger.warning("User failed to confirm their name after multiple attempts.")
+            self.tts.speak(VISITOR["register_name_fail"])
+            return
+        
+        # Create user record
         new_user_id, _ = self.user_manager.create_user(name_from_stt)
         if not new_user_id:
             self.tts.speak(VISITOR["register_profile_fail"])
             return
 
-        # Step 4: Create face folder and take registration photos
+        # --- Simplified Face Registration Step ---
         user_face_dir = Path.cwd() / "data" / "known_faces_db" / new_user_id
-        os.makedirs(user_face_dir, exist_ok=True)
         self.tts.speak(VISITOR["register_photo"].format(name=name_from_stt))
-
+        
         try:
             self.gpio.set_camera_led(True)
-            for i in range(3):
-                self.tts.speak(str(3 - i))
-                time.sleep(1)
-                image_path = user_face_dir / f"image_{i}.jpg"
-                self.face_proc.take_picture(CAMERA_ID, str(image_path))
-
+            # A single, clean call to the simple registration method
+            registration_success = self.face_proc.register_face_simple(
+                camera_id=CAMERA_ID,
+                user_folder=user_face_dir,
+                num_photos=3  # Captures 3 quality photos
+            )
             self.gpio.set_camera_led(False)
+
+            if not registration_success:
+                self.tts.speak(VISITOR["register_error"])
+                self.user_manager.delete_user(new_user_id, user_face_dir.parent)
+                return
+
+            # --- Registration successful, proceed to AWS and messaging ---
             self.tts.speak_async(VISITOR["register_photo_complete"])
             main_image_path_for_aws = str(user_face_dir / "image_0.jpg")
-            # Register user in AWS
             self.aws.register_visitor(
                 image_path=main_image_path_for_aws,
                 visitor_name=name_from_stt,
                 user_id=new_user_id,
                 permission_level="Allowed",
             )
-            logger.info(f"New visitor {name_from_stt} was registered successfully.")
-            self.aws.submit_log(
-                event_type="user_access_granted",
-                summary="New visitor registered",
-                details={},
-            )
+            logger.info(f"New visitor '{name_from_stt}' was registered successfully.")
             self.tts.speak(VISITOR["register_complete"])
-            # Step 5: Confirm before recording a message
+
             if self.interaction_manager.ask_yes_no(VISITOR["ask_message"]):
                 self._record_and_send_message(name_from_stt, new_user_id)
             else:
                 self.tts.speak(VISITOR["register_no"])
 
-        except Exception:
-            # Any error during registration
+        except Exception as e:
+            logger.error(f"A critical error occurred during visitor registration: {e}", exc_info=True)
             self.tts.speak(VISITOR["register_error"])
-            logger.error(
-                f"It occurred an error during the registration of a new visitor ({new_user_id})"
-            )
-        finally:
+            self.user_manager.delete_user(new_user_id, user_face_dir.parent)
             self.gpio.set_camera_led(False)
 
     def _record_and_send_message(self, name, user_id):
