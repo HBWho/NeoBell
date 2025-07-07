@@ -231,10 +231,10 @@ class AwsIotClient:
         payload = {"identifier_type": identifier_type, "identifier_value": identifier_value}
         return self._publish_and_wait('package_check', payload)
     
-    def update_package_status(self, order_id, new_status):
+    def update_package_status(self, tracking_number, new_status):
         """Updates the status of a package."""
-        logger.info(f"Updating package status for order '{order_id}' to '{new_status}'.")
-        payload = {"order_id": order_id, "new_status": new_status}
+        logger.info(f"Updating package status for order '{tracking_number}' to '{new_status}'.")
+        payload = {"tracking_number": tracking_number, "new_status": new_status}
         return self._publish_and_wait('package_status_update', payload)
 
     def verify_nfc_tag(self, nfc_id):

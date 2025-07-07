@@ -3,8 +3,10 @@ import threading
 import time
 import logging
 import subprocess
+import sounddevice as sd
 
 VIDEO_FPS = 20.0
+MICROPHONE_NAME = "USB PnP Sound Device"
 logger = logging.getLogger(__name__)
 
 class CameraManager:
@@ -31,6 +33,7 @@ class CameraManager:
             cam.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
             self.cams[camera_id] = cam
             self.cam_refcounts[camera_id] = 1
+            logger.info(f"Camera resource allocated")
             return cam
 
     def release_camera(self, camera_id: int):
@@ -40,17 +43,19 @@ class CameraManager:
                 return
             self.cam_refcounts[camera_id] -= 1
             if self.cam_refcounts[camera_id] <= 0:
+                logger.info(f"Camera resource released")
                 self.cams[camera_id].release()
                 del self.cams[camera_id]
                 del self.cam_refcounts[camera_id]
 
     def take_picture(self, camera_id: int, filename: str):
         """Captures a single high-resolution picture and saves it to a file."""
-        cam = None
+        cam = None # Initialize to None
         try:
             cam = self.open_camera(camera_id)
+
             for i in range(10):
-                result, image = cam.read()
+                result, _ = cam.read()
                 if not result:
                     logger.warning(f"Failed to read a warmup frame (attempt {i + 1}).")
                     break
@@ -72,8 +77,6 @@ class CameraManager:
         """Thread worker for recording video frames. It runs until the stop event is set."""
         logger.info("Background video recording thread started.")
         cap = self.open_camera(camera_id)
-        if not cap:
-            cap = self.open_camera(camera_id)
 
         frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -138,67 +141,55 @@ class CameraManager:
         self, camera_id: int, output_file: str, duration: float = 5.0
     ):
         """
-        Grava vídeo com áudio usando FFmpeg com configurações mais compatíveis.
-
-        Args:
-            camera_id: ID da câmera (0 para padrão)
-            output_file: Nome do arquivo de saída (use .mp4)
-            duration: Duração em segundos
+        Grava vídeo com áudio usando FFmpeg, selecionando o microfone dinamicamente.
         """
         logger.info(f"Iniciando gravação por {duration} segundos...")
 
         try:
-            # Configurações de dispositivo (ajuste conforme necessário)
-            video_device = f"/dev/video{camera_id}"  # Linux
-            audio_device = "plughw:CARD=Device,DEV=0"  # Linux
+            # --- SELEÇÃO DINÂMICA DO MICROFONE ---
+            audio_device = self._get_ffmpeg_alsa_device_name(MICROPHONE_NAME)
+            if not audio_device:
+                logger.error("Microfone alvo não encontrado. Verifique o nome e se está conectado. Abortando gravação.")
+                return False
+            
+            # Dispositivo de vídeo (pode precisar de ajuste se não for /dev/video{X})
+            video_device = f"/dev/video{camera_id}"
 
-            # Comando FFmpeg otimizado para compatibilidade
+            # Comando FFmpeg usando o nome do dispositivo de áudio encontrado
             cmd = [
                 "ffmpeg",
                 "-y",
-                "-f",
-                "v4l2",
-                "-framerate",
-                str(VIDEO_FPS),
-                "-video_size",
-                "640x480",
-                "-i",
-                video_device,
-                "-f",
-                "alsa",
-                "-i",
-                audio_device,
-                "-t",
-                str(duration),
-                "-c:v",
-                "libx264",
-                "-preset",
-                "ultrafast",
-                "-crf",
-                "23",
-                "-pix_fmt",
-                "yuv420p",  # Essencial para compatibilidade
-                "-c:a",
-                "aac",
-                "-b:a",
-                "128k",
-                "-ar",
-                "44100",
-                "-movflags",
-                "+faststart",  # Para streaming online
+                "-f", "v4l2",
+                "-input_format", "mjpeg",
+                "-framerate", str(VIDEO_FPS), # Supondo que VIDEO_FPS é uma constante definida
+                "-video_size", "1920x1080",
+                "-i", video_device,
+                "-thread_queue_size", "1024",
+                "-f", "alsa",
+                "-i", audio_device,
+                "-t", str(duration),
+                "-c:v", "libx264",
+                "-af", "afftdn",
+                "-preset", "ultrafast",
+                "-crf", "23",
+                "-pix_fmt", "yuv420p",
+                "-c:a", "aac",
+                "-b:a", "128k",
+                "-ar", "48000",
+                "-movflags", "+faststart",
                 output_file,
             ]
 
             # Executa o comando
             process = subprocess.run(
                 cmd,
-                stderr=subprocess.PIPE,
-                stdout=subprocess.PIPE,
+                capture_output=True, # capture_output é mais simples que definir stdout/stderr separadamente
+                text=True,           # Decodifica stdout/stderr automaticamente
                 timeout=duration + 10,
             )
 
             if process.returncode != 0:
-                logger.error(f"Erro FFmpeg: {process.stderr.decode()}")
+                logger.error(f"Erro FFmpeg:\nSTDOUT:\n{process.stdout}\nSTDERR:\n{process.stderr}")
                 return False
 
             logger.info(f"Vídeo criado em {output_file}")
@@ -210,13 +201,47 @@ class CameraManager:
         except Exception as e:
             logger.error(f"Falha na gravação: {str(e)}")
             return False
+        
+    def _get_ffmpeg_alsa_device_name(self, device_name_substring: str) -> str | None:
+        """
+        Encontra um dispositivo de áudio de entrada e retorna seu nome no formato ALSA
+        para ser usado com o FFmpeg (ex: 'plughw:1,0').
+
+        Args:
+            device_name_substring: Parte do nome do dispositivo desejado (ex: "Webcam").
+
+        Returns:
+            O nome do dispositivo no formato ALSA ou None se não for encontrado.
+        """
+        try:
+            devices = sd.query_devices()
+            for i, device in enumerate(devices):
+                # Procura por um dispositivo de ENTRADA que contenha o nome
+                is_input = device.get("max_input_channels", 0) > 0
+                name_matches = (
+                    device_name_substring.lower() in device.get("name", "").lower()
+                )
+
+                if is_input and name_matches:
+                    alsa_name = f"plughw:{i},0"
+                    logger.info(
+                        f"Dispositivo encontrado: '{device['name']}' (índice {i}). Usando nome ALSA: '{alsa_name}'"
+                    )
+                    return alsa_name
+
+        except Exception:
+            logger.error("Não foi possível consultar os dispositivos de áudio.", exc_info=True)
+            return None
+
+        logger.warning(f"Não foi possível encontrar um dispositivo de entrada com o nome '{device_name_substring}'.")
+        return None
 
 
 def main():
     print("Inicio do video...")
     camera_manager = CameraManager()
     sucesso = camera_manager.record_video_with_audio(
-        camera_id=0,
+        camera_id=2,
         output_file="video_sync.mp4",
         duration=10.0,  # grava por 10 segundos
     )
@@ -224,7 +249,14 @@ def main():
         print("Vídeo gravado com sucesso!")
     else:
         print("Falha ao gravar vídeo.")
-
+    # sucesso = camera_manager.take_picture(
+    #         camera_id=2,
+    #         filename="test.jpeg"
+    #         )
+    # if sucesso:
+    #     print("Foto tirada com sucesso!")
+    # else:
+    #     print("Falha ao tirar a foto.")
 
 if __name__ == "__main__":
     main()

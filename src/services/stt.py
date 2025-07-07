@@ -9,13 +9,16 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+logging.getLogger("speech_recognition").setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # --- Constantes de Áudio e STT ---
 SAMPLE_RATE = 48000
+# SAMPLE_RATE = 96000
 
 # --- Parâmetros de Detecção de Silêncio ---
-SILENCE_THRESHOLD = 300  # Limiar de energia para detecção de silêncio
+PAUSE_THRESHOLD = 1.2
+SILENCE_THRESHOLD = 100  # Limiar de energia para detecção de silêncio
 
 
 class STTService:
@@ -29,6 +32,7 @@ class STTService:
         self.recorder.energy_threshold = (
             SILENCE_THRESHOLD  # Define o limiar de energia para detecção de silêncio
         )
+        self.recorder.pause_threshold = PAUSE_THRESHOLD
         self.recorder.dynamic_energy_threshold = False
         self.audio_model = whisper.load_model(
             model_name
@@ -44,10 +48,7 @@ class STTService:
         """
         output_filename = "audio_neobell.wav"
         try:
-            mic_kwargs = {}
-            if self.device_id is not None:
-                mic_kwargs["device_index"] = self.device_id
-            with sr.Microphone(**mic_kwargs) as source:
+            with sr.Microphone(device_index=self.device_id, sample_rate=SAMPLE_RATE, chunk_size=512) as source:
                 logger.info("Ajustando para o ruído ambiente...")
                 # self.recorder.adjust_for_ambient_noise(source, duration=1) #* Check if this line is needed
                 logger.info(f"Gravando... (máx {duration_seconds}s ou até silêncio)")
@@ -56,7 +57,7 @@ class STTService:
                 )
             # Salva o áudio capturado
             with open(output_filename, "wb") as f:
-                f.write(audio.get_wav_data())
+                f.write(audio.get_wav_data(convert_rate=SAMPLE_RATE))
             logger.info(f"Áudio gravado com sucesso em '{output_filename}'")
         except Exception as e:
             logger.error(f"Erro ao capturar áudio do microfone: {e}")
@@ -64,7 +65,7 @@ class STTService:
         # --- Transcrição com Whisper ---
         try:
             logger.info("Transcrevendo áudio com Whisper...")
-            result = self.audio_model.transcribe(output_filename)
+            result = self.audio_model.transcribe(output_filename, language="en")
             transcribed_text = result["text"].strip()
             logger.info(f"Texto transcrito: '{transcribed_text}'")
             return transcribed_text if transcribed_text else None
@@ -89,7 +90,7 @@ if __name__ == "__main__":
     print("-" * 50)
 
     # Configure os parâmetros aqui.
-    MODEL_NAME = "base"  # Whisper model: tiny, base, small, medium, large
+    MODEL_NAME = "tiny"  # Whisper model: tiny, base, small, medium, large
     MICROPHONE_ID = 0
 
     try:

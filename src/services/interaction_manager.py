@@ -1,4 +1,5 @@
 import logging
+import re
 
 # from src.phrases import YESNO
 from phrases import YESNO
@@ -31,17 +32,18 @@ class InteractionManager:
             logger.error("ask_question called with an empty question.")
             return None
 
+        self.tts.speak(question, override)
         for attempt in range(max_attempts):
-            self.tts.speak(question, override)
             logger.info(
                 f"Waiting for user response for {max_listen_duration} seconds..."
             )
             transcribed_text = self.stt.transcribe_audio(
                 duration_seconds=max_listen_duration
             )
-            if not transcribed_text and attempt < max_attempts - 1:
+            if not transcribed_text:
                 logger.warning("No text was transcribed from the user's response.")
-                self.tts.speak(YESNO["not_understood"])
+                if attempt < max_attempts -1:
+                    self.tts.speak(YESNO["not_understood"])
                 continue
             processed_response = transcribed_text.lower().strip()
             logger.info(f"User response transcribed as: '{processed_response}'")
@@ -79,15 +81,17 @@ class InteractionManager:
         All feedback is centralized in phrases.py (YESNO).
         Returns True for affirmative, False for negative or after 3 failed attempts.
         """
+        temp_frase = None
         for attempt in range(3):
             response = self.ask_question(
-                question if attempt == 0 else YESNO["clarify"],
+                temp_frase if temp_frase else question,
                 override=override,
                 max_listen_duration=listen_duration_seconds,
                 max_attempts=2,
             )
             if not response:
                 break
+            response = re.sub(r'[^a-zA-z\s\u00C0-\u00FF]', '', response)
             response_words = set(response.split())
             is_affirmative = not response_words.isdisjoint(AFFIRMATIVE_WORDS)
             is_negative = not response_words.isdisjoint(NEGATIVE_WORDS)
@@ -95,11 +99,11 @@ class InteractionManager:
                 logger.warning(
                     f"ask_yes_no: Conflicting responses detected: '{response}'"
                 )
-                self.tts.speak(YESNO["conflict"])
+                temp_frase = YESNO["conflict"]
                 continue
             if is_affirmative:
                 logger.info("Affirmative answer detected.")
-                self.tts.speak(YESNO["affirmative"])
+                temp_frase = YESNO["affirmative"]
                 return True
             if is_negative:
                 logger.info("Negative answer detected.")
@@ -108,7 +112,7 @@ class InteractionManager:
             logger.warning(
                 f"ask_yes_no: Could not determine intent from response: '{response}'"
             )
-            self.tts.speak(YESNO["not_understood"])
+            temp_frase = YESNO["not_understood"]
         logger.warning("ask_yes_no: No valid yes/no response after retries.")
         self.tts.speak(YESNO["max_attempts"])
         return None  # No response at all, treat as negative

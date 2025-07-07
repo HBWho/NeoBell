@@ -23,7 +23,7 @@ class DeliveryFlow:
         self.tts = services.get("tts_service")
         self.ocr = services.get("ocr_processing")
         self.servo = services.get("servo_service")
-        self.face_proc = services.get("face_processor")
+        self.camera_manager = services.get("camera_manager")
         self.interaction_manager = services.get("interaction_manager")
         logger.info("Delivery Flow handler initialized.")
 
@@ -46,7 +46,7 @@ class DeliveryFlow:
                 self._handle_compartment_door(DELIVERY["compartment"])
                 is_same_package = self._scan_internal_package(validated_code)
                 if is_same_package:
-                    self._finalize_delivery()
+                    self._finalize_delivery(validated_code)
                 else:
                     logger.info("Package rejected due to mismatch.")
                     self._handle_compartment_door(DELIVERY["cancel_inside"])
@@ -142,7 +142,7 @@ class DeliveryFlow:
 
         result = self.ocr.find_validated_code(
             camera_id=INTERNAL_CAMERA,
-            fast_mode=True,
+            fast_mode=False,
             code_verification_callback=local_checker_callback,
             timeout_sec=scan_timeout,
             retries=max_scan_attempts,
@@ -182,7 +182,7 @@ class DeliveryFlow:
         self.gpio.set_external_green_led(False)
         self.gpio.set_external_red_led(True)
 
-    def _finalize_delivery(self):
+    def _finalize_delivery(self, validated_code):
         """
         Handles the successful delivery confirmation and secures the package.
         All user feedback is centralized and friendly.
@@ -191,6 +191,8 @@ class DeliveryFlow:
         self.aws.submit_log(
             event_type="package_detected", summary="Package delivered", details={}
         )
+        self.aws.update_package_status(validated_code, "delivered") 
+
         logger.info("Finalizing delivery...")
 
         self.gpio.set_internal_led(True)
@@ -203,10 +205,11 @@ class DeliveryFlow:
 
         def hatch_sequence():
             try:
-                self.face_proc.start_background_recording(
+                self.gpio.set_internal_led(True)
+                self.camera_manager.start_background_recording(
                     INTERNAL_CAMERA, video_filepath
                 )
-                time.sleep(1)
+                time.sleep(2)
                 self.servo.openHatch()
                 time.sleep(5)
 
@@ -215,13 +218,13 @@ class DeliveryFlow:
 
                 close_thread = Thread(target=close_hatch, daemon=True)
                 close_thread.start()
-                time.sleep(2)  # Wait some time for the hatch to close for recording
+                time.sleep(4)  # Wait some time for the hatch to close for recording
             except Exception:
                 logger.error(
                     "An error occurred during the finalization sequence.", exc_info=True
                 )
             finally:
-                self.face_proc.stop_background_recording()
+                self.camera_manager.stop_background_recording()
                 self.gpio.set_internal_led(False)
                 logger.info(
                     f"Delivery finalized and package secured. Capture saved to {video_filepath}"

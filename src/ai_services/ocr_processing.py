@@ -208,13 +208,6 @@ class OCRProcessing:
                 pyzbar_thread.start()
                 dm_thread.start()
 
-                if not fast_mode:
-                    tiles = self._create_overlapping_tiles(
-                        processed_frame, tile_size_wh=(350, 350), overlap_percent=0.2
-                    )
-                    detection_worker(dm_detector, tiles, "dm_slice")
-                    detection_worker(pyzbar_detector, tiles, "pyzbar_slice")
-
                 # cv2.imshow("Camera", processed_frame)
                 # if cv2.waitKey(1) & 0xFF == ord("q"):
                 #     stop_event.set()
@@ -339,7 +332,8 @@ class OCRProcessing:
                     logger.warning(
                         f"Attempt {attempt + 1}/{retries}: Operation timed out after {timeout_sec} seconds. No validated package found."
                     )
-                    on_timeout()
+                    if attempt < (retries - 1):
+                        on_timeout()
                     continue
         except Exception as e:
             logger.error(f"An error occurred during OCR processing: {e}", exc_info=True)

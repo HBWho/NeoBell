@@ -38,6 +38,7 @@ class VisitorFlow:
         self.tts = services.get("tts_service")  # Text-to-Speech service
         self.stt = services.get("stt_service")  # Speech-to-Text service
         self.face_proc = services.get("face_processor")  # Face recognition/recording
+        self.camera_manager = services.get("camera_manager")
         self.interaction_manager = services.get("interaction_manager")  # Centralized interaction logic
         logger.info("Visitor Flow handler initialized.")
 
@@ -105,7 +106,8 @@ class VisitorFlow:
         status, user_id = self.face_proc.analyze_live_stream(
             camera_id=CAMERA_ID,
             db_path=db_path,
-            timeout_seconds=5 # This is the timeout period you wanted
+            debug_mode=True,
+            timeout_seconds=10 # This is the timeout period you wanted
         )
         
         self.gpio.set_camera_led(False)
@@ -230,25 +232,29 @@ class VisitorFlow:
 
         # --- Simplified Face Registration Step ---
         user_face_dir = Path.cwd() / "data" / "known_faces_db" / new_user_id
-        self.tts.speak(VISITOR["register_photo"].format(name=name_from_stt))
-        
+
         try:
-            self.gpio.set_camera_led(True)
-            # A single, clean call to the simple registration method
-            registration_success = self.face_proc.register_face_simple(
+            # A single call to the new batch registration method.
+            # We pass the gpio and tts services so it can handle LED and announcements.
+            registration_success = self.face_proc.register_face_in_batch(
                 camera_id=CAMERA_ID,
                 user_folder=user_face_dir,
-                num_photos=3  # Captures 3 quality photos
+                gpio=self.gpio,
+                tts=self.tts
             )
-            self.gpio.set_camera_led(False)
 
             if not registration_success:
                 self.tts.speak(VISITOR["register_error"])
-                self.user_manager.delete_user(new_user_id, user_face_dir.parent)
+                # The batch function handles its own cleanup, we just need to delete the user record
+                self.user_manager.delete_user(new_user_id) 
                 return
 
             # --- Registration successful, proceed to AWS and messaging ---
-            self.tts.speak_async(VISITOR["register_photo_complete"])
+            # The "processing" message is handled inside the batch function,
+            # so we can go straight to completion.
+            self.tts.speak(VISITOR["register_complete"])
+
+            # Register with AWS and ask to leave a message...
             main_image_path_for_aws = str(user_face_dir / "image_0.jpg")
             self.aws.register_visitor(
                 image_path=main_image_path_for_aws,
@@ -256,8 +262,6 @@ class VisitorFlow:
                 user_id=new_user_id,
                 permission_level="Allowed",
             )
-            logger.info(f"New visitor '{name_from_stt}' was registered successfully.")
-            self.tts.speak(VISITOR["register_complete"])
 
             if self.interaction_manager.ask_yes_no(VISITOR["ask_message"]):
                 self._record_and_send_message(name_from_stt, new_user_id)
@@ -266,9 +270,9 @@ class VisitorFlow:
 
         except Exception as e:
             logger.error(f"A critical error occurred during visitor registration: {e}", exc_info=True)
-            self.tts.speak(VISITOR["register_error"])
-            self.user_manager.delete_user(new_user_id, user_face_dir.parent)
-            self.gpio.set_camera_led(False)
+            self.tts.speak(VISITOR["system_error"])
+            self.user_manager.delete_user(new_user_id)
+        
 
     def _record_and_send_message(self, name, user_id):
         """
@@ -283,7 +287,7 @@ class VisitorFlow:
         try:
             # Step 1: Record video with audio
             self.gpio.set_camera_led(True)
-            self.face_proc.record_video_with_audio(
+            self.camera_manager.record_video_with_audio(
                 camera_id=CAMERA_ID,
                 output_file=final_video_path,
                 duration=10,

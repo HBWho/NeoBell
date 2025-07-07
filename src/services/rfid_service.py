@@ -50,23 +50,21 @@ class RfidListenerService:
             try:
                 logger.info(f"Attempting to connect to serial port {self.serial_port}...")
                 with serial.Serial(self.serial_port, self.baud_rate, timeout=1) as ser:
-                    # Force a hardware reset on the ESP32 by toggling the DTR line.
-                    # This ensures the ESP32 starts its code from a clean state every time we connect.
                     logger.info("Toggling DTR to reset ESP32...")
                     ser.dtr = False
                     time.sleep(0.1)
                     ser.dtr = True
-                    time.sleep(0.5) # Give the ESP32 a moment to reboot
+                    time.sleep(0.5)
 
                     logger.info("Serial connection successful! Waiting for RFID tags...")
-                    ser.flushInput()
+                    ser.reset_input_buffer()
                     
                     while not self._stop_event.is_set():
                         if ser.in_waiting > 0:
                             line = ser.readline()
                             if line:
-                                self._process_rfid_tag(line)
-                        # A small sleep to prevent the loop from running too hot
+                                self._process_rfid_tag(line, ser)
+                        
                         time.sleep(0.1)
 
             except serial.SerialException as e:
@@ -74,11 +72,11 @@ class RfidListenerService:
                 time.sleep(5)
             except Exception as e:
                 logger.error("An unexpected error occurred in the RFID listener loop.", exc_info=True)
-                time.sleep(5) # Wait before retrying
+                time.sleep(5)
         
         logger.info("RFID listener loop has finished.")
 
-    def _process_rfid_tag(self, line: bytes):
+    def _process_rfid_tag(self, line: bytes, serial_connection: serial.Serial):
         """
         Decodes a raw tag, formats it to a standard format (lowercase, colon-separated),
         validates it, and acts upon the result.
@@ -111,6 +109,12 @@ class RfidListenerService:
                 self.gpio_service.set_collect_lock(True) # Unlock
                 time.sleep(5)
                 self.gpio_service.set_collect_lock(False) # Lock
+
+                logger.info("Clearing serial buffer and pausing for 2 seconds to prevent duplicate reads...")
+                # 1. Limpa qualquer leitura que tenha chegado durante o processamento
+                serial_connection.reset_input_buffer()
+                # 2. Pausa para criar um período de "cooldown"
+                time.sleep(2)
                 
                 logger.info("Collection door sequence complete.")
             else:

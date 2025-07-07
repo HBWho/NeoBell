@@ -15,6 +15,7 @@ from services.user_manager import UserManager
 from services.servo_service import ServoService
 from services.rfid_service import RfidListenerService
 from services.interaction_manager import InteractionManager
+from services.camera_manager import CameraManager
 from ai_services.face_processing import FaceProcessing
 from ai_services.ocr_processing import OCRProcessing
 from communication.aws_client import AwsIotClient
@@ -28,6 +29,8 @@ BUTTON_PIN = (1, 12)  # Physical Pin 33
 STT_HEAVY_MODE = (
     False  # Set to True if using a heavy STT model like vosk-model-en-us-0.22
 )
+
+MICROPHONE_NAME = "USB PnP Sound Device"
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +89,7 @@ class Orchestrator:
         self.gapi_service = None
         self.stt_service = None
         self.tts_service = None
+        self.camera_manager = None
         self.face_processor = None
         self.ocr_service = None
         self.servo_service = None
@@ -150,11 +154,12 @@ class Orchestrator:
         self.user_manager = UserManager(db_path=user_db_file)
         self.gapi_service = GAPI(debug_mode=True)
         self.tts_service = TTSService()
-        self.face_processor = FaceProcessing()
+        self.camera_manager = CameraManager()
+        self.face_processor = FaceProcessing(self.camera_manager)
         self.ocr_service = OCRProcessing()
         self.servo_service = ServoService(pwm_chip=1, pwm_channel=0)
 
-        stt_device_id = find_stt_device_id(device_name_substring="USB PnP Sound Device")
+        stt_device_id = find_stt_device_id(MICROPHONE_NAME)
         if stt_device_id is None:
             logger.critical(
                 "Could not find a suitable STT audio device. STT will be disabled."
@@ -162,7 +167,7 @@ class Orchestrator:
             self.stt_service = None
         else:
             self.stt_service = STTService(
-                model_path=self.model_path, device_id=stt_device_id
+                model_name=self.model_path, device_id=stt_device_id
             )
 
         input_pins = [BUTTON_PIN]
@@ -198,6 +203,7 @@ class Orchestrator:
             "gapi_service": self.gapi_service,
             "face_processor": self.face_processor,
             "ocr_processing": self.ocr_service,
+            "camera_manager": self.camera_manager,
             "servo_service": self.servo_service,
             "interaction_manager": self.interaction_manager,
         }
@@ -231,14 +237,14 @@ class Orchestrator:
                     time.sleep(0.1)
 
                 logger.info("Button pressed! Starting main conversation flow.")
-                self.aws_client.submit_log(
-                    event_type="doorbell_pressed",
-                    summary="Doorbell pressed",
-                    details={
-                        "Button": "Pressed",
-                        "Timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-                    },
-                )
+                # self.aws_client.submit_log(
+                #     event_type="doorbell_pressed",
+                #     summary="Doorbell pressed",
+                #     details={
+                #         "Button": "Pressed",
+                #         "Timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                #     },
+                # )
                 time.sleep(0.5)
 
                 # Intent detection loop (allows retry on unclear intent)
@@ -265,9 +271,9 @@ class Orchestrator:
                         attempt += 1
                         continue
                     
-                    # attempt += 1 # TODO
-                    # continue # TODO
-                    intent = self.gapi_service.get_initial_intent(text).value
+                    # intent = self.gapi_service.get_initial_intent(text).value
+                    # intent = "VISITOR_MESSAGE"
+                    intent = "PACKAGE_DELIVERY"
                     logger.info(f"Detected intent: '{intent}'")
                     if intent in ("VISITOR_MESSAGE", "PACKAGE_DELIVERY"):
                         break
