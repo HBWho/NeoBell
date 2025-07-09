@@ -93,26 +93,37 @@ class VisitorFlow:
 
         logger.info("Visitor interaction flow finished.")
 
-    def _handle_recognition(self) -> tuple[str, str | None]:
+    def _handle_recognition(self, timeout_seconds: int = 7) -> tuple[str, str | None]:
         """
-        Analyzes the live stream and returns the status of who was seen.
-        This is now the single point of contact for face analysis in this flow.
+        Analyzes the camera feed frame-by-frame for a set duration.
+
+        It controls the loop and calls the simplified analyze_person
+        method from the FaceProcessing class for each frame.
         """
-        self.gpio.set_camera_led(True)
         self.tts.speak(VISITOR["face_recognition"])
-        db_path = str(Path.cwd() / "data" / "known_faces_db")
-        
-        # The core of the new logic: call the stream analyzer
-        status, user_id = self.face_proc.analyze_live_stream(
-            camera_id=CAMERA_ID,
-            db_path=db_path,
-            debug_mode=True,
-            timeout_seconds=10 # This is the timeout period you wanted
-        )
-        
-        self.gpio.set_camera_led(False)
-        return status, user_id
-        
+        start_time = time.time()
+        temp_image_path = "data/temp_live_frame.jpg"
+
+        while time.time() - start_time < timeout_seconds:
+            # 1. Take a single picture
+            if not self.camera_manager.take_picture(CAMERA_ID, temp_image_path):
+                time.sleep(0.5)
+                continue # Try again if picture fails
+
+            # 2. Analyze that single picture using your new reliable method
+            status, user_id = self.face_proc.analyze_person(temp_image_path)
+
+            # 3. Act on the result
+            if status in ["KNOWN_PERSON", "UNKNOWN_PERSON"]:
+                # If we get a clear result (known or unknown), we're done.
+                return status, user_id
+            
+            # If result is "NO_FACE" or "BAD_QUALITY", the loop continues to try again.
+            time.sleep(0.5) # Small delay before next attempt
+
+        # If the loop finishes without a clear result
+        logger.info("Recognition timeout. No clear face was identified.")
+        return "NO_FACE", None
 
     def _handle_known_visitor(self, name: str, user_id: str):
         """
@@ -236,7 +247,7 @@ class VisitorFlow:
         try:
             # A single call to the new batch registration method.
             # We pass the gpio and tts services so it can handle LED and announcements.
-            registration_success = self.face_proc.register_face_in_batch(
+            registration_success = self.face_proc.register_face(
                 camera_id=CAMERA_ID,
                 user_folder=user_face_dir,
                 gpio=self.gpio,

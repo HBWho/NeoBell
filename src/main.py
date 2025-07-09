@@ -143,6 +143,7 @@ class Orchestrator:
         """Initializes singleton services used across the application."""
         logger.info("Initializing core services (TTS, STT, etc.)...")
         user_db_file = Path.cwd() / "data" / "users.json"
+        face_db_path = Path.cwd() / "data" / "known_faces_db"
         self.aws_client = AwsIotClient(
             self.sbc_id,
             self.endpoint,
@@ -155,7 +156,7 @@ class Orchestrator:
         self.gapi_service = GAPI(debug_mode=True)
         self.tts_service = TTSService()
         self.camera_manager = CameraManager()
-        self.face_processor = FaceProcessing(self.camera_manager)
+        self.face_processor = FaceProcessing(self.camera_manager, db_path=str(face_db_path))
         self.ocr_service = OCRProcessing()
         self.servo_service = ServoService(pwm_chip=1, pwm_channel=0)
 
@@ -272,8 +273,8 @@ class Orchestrator:
                         continue
                     
                     # intent = self.gapi_service.get_initial_intent(text).value
-                    # intent = "VISITOR_MESSAGE"
-                    intent = "PACKAGE_DELIVERY"
+                    intent = "VISITOR_MESSAGE"
+                    # intent = "PACKAGE_DELIVERY"
                     logger.info(f"Detected intent: '{intent}'")
                     if intent in ("VISITOR_MESSAGE", "PACKAGE_DELIVERY"):
                         break
