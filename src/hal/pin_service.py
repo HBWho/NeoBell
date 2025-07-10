@@ -42,12 +42,6 @@ class GpioService:
         """Controls the external lock solenoid."""
         self.manager.set_pin_value(EXTERNAL_LOCK_PIN, is_locked)
 
-    def set_internal_lock(self, is_locked: bool):
-        pass
-        # NAO EXISTE MAIS
-        # """Controls the internal lock solenoid."""
-        # self.manager.set_pin_value(INTERNAL_LOCK_PIN, is_locked)
-
     def set_collect_lock(self, is_locked: bool):
         # COMPARTIMENTO DE RETIRAR PACOTE
         """Controls the collection lock solenoid."""

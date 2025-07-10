@@ -15,16 +15,14 @@ class CameraManager:
         self.recording_thread = None
         self.cams = {}  # camera_id: VideoCapture
         self.cam_refcounts = {}  # camera_id: refcount
-        self.lock = threading.Lock()  # para garantir thread safety
+        self.lock = threading.Lock()  
 
     def open_camera(self, camera_id: int, width: int = 1920, height: int = 1080):
         """Opens and returns a cv2.VideoCapture object for the given camera ID. Increments refcount."""
         with self.lock:
             if camera_id in self.cams:
-                # Já aberta, só aumenta o contador
                 self.cam_refcounts[camera_id] += 1
                 return self.cams[camera_id]
-            # Abrir nova câmera
             cam = cv2.VideoCapture(camera_id)
             if not cam.isOpened():
                 logger.error(f"Cannot open camera with ID {camera_id}.")
@@ -146,22 +144,19 @@ class CameraManager:
         logger.info(f"Iniciando gravação por {duration} segundos...")
 
         try:
-            # --- SELEÇÃO DINÂMICA DO MICROFONE ---
             audio_device = self._get_ffmpeg_alsa_device_name(MICROPHONE_NAME)
             if not audio_device:
                 logger.error("Microfone alvo não encontrado. Verifique o nome e se está conectado. Abortando gravação.")
                 return False
             
-            # Dispositivo de vídeo (pode precisar de ajuste se não for /dev/video{X})
             video_device = f"/dev/video{camera_id}"
 
-            # Comando FFmpeg usando o nome do dispositivo de áudio encontrado
             cmd = [
                 "ffmpeg",
                 "-y",
                 "-f", "v4l2",
                 "-input_format", "mjpeg",
-                "-framerate", str(VIDEO_FPS), # Supondo que VIDEO_FPS é uma constante definida
+                "-framerate", str(VIDEO_FPS), 
                 "-video_size", "1920x1080",
                 "-i", video_device,
                 "-thread_queue_size", "1024",
@@ -180,11 +175,10 @@ class CameraManager:
                 output_file,
             ]
 
-            # Executa o comando
             process = subprocess.run(
                 cmd,
-                capture_output=True, # capture_output é mais simples que definir stdout/stderr separadamente
-                text=True,           # Decodifica stdout/stderr automaticamente
+                capture_output=True, 
+                text=True,          
                 timeout=duration + 10,
             )
 
@@ -243,20 +237,12 @@ def main():
     sucesso = camera_manager.record_video_with_audio(
         camera_id=2,
         output_file="video_sync.mp4",
-        duration=10.0,  # grava por 10 segundos
+        duration=10.0, 
     )
     if sucesso:
         print("Vídeo gravado com sucesso!")
     else:
         print("Falha ao gravar vídeo.")
-    # sucesso = camera_manager.take_picture(
-    #         camera_id=2,
-    #         filename="test.jpeg"
-    #         )
-    # if sucesso:
-    #     print("Foto tirada com sucesso!")
-    # else:
-    #     print("Falha ao tirar a foto.")
 
 if __name__ == "__main__":
     main()

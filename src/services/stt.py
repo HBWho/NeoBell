@@ -1,24 +1,16 @@
 import logging
 import datetime
 import whisper
-import speech_recognition as sr  # Novo: Importa speech_recognition
+import speech_recognition as sr  
 
-
-# --- Configuração do Logger ---
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
 logging.getLogger("speech_recognition").setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# --- Constantes de Áudio e STT ---
 SAMPLE_RATE = 48000
 # SAMPLE_RATE = 96000
 
-# --- Parâmetros de Detecção de Silêncio ---
 PAUSE_THRESHOLD = 1.2
-SILENCE_THRESHOLD = 100  # Limiar de energia para detecção de silêncio
+SILENCE_THRESHOLD = 100  
 
 
 class STTService:
@@ -30,13 +22,13 @@ class STTService:
         self.device_id = device_id
         self.recorder = sr.Recognizer()
         self.recorder.energy_threshold = (
-            SILENCE_THRESHOLD  # Define o limiar de energia para detecção de silêncio
+            SILENCE_THRESHOLD  
         )
         self.recorder.pause_threshold = PAUSE_THRESHOLD
         self.recorder.dynamic_energy_threshold = False
         self.audio_model = whisper.load_model(
             model_name
-        )  # Carrega o modelo Whisper corretamente
+        )  
         logger.info(
             f"STTService inicializado com modelo '{model_name}' e dispositivo ID '{device_id}'"
         )
@@ -50,19 +42,17 @@ class STTService:
         try:
             with sr.Microphone(device_index=self.device_id, sample_rate=SAMPLE_RATE, chunk_size=512) as source:
                 logger.info("Ajustando para o ruído ambiente...")
-                # self.recorder.adjust_for_ambient_noise(source, duration=1) #* Check if this line is needed
                 logger.info(f"Gravando... (máx {duration_seconds}s ou até silêncio)")
                 audio = self.recorder.listen(
                     source, timeout=duration_seconds, phrase_time_limit=duration_seconds
                 )
-            # Salva o áudio capturado
             with open(output_filename, "wb") as f:
                 f.write(audio.get_wav_data(convert_rate=SAMPLE_RATE))
             logger.info(f"Áudio gravado com sucesso em '{output_filename}'")
         except Exception as e:
             logger.error(f"Erro ao capturar áudio do microfone: {e}")
             return None
-        # --- Transcrição com Whisper ---
+
         try:
             logger.info("Transcrevendo áudio com Whisper...")
             result = self.audio_model.transcribe(output_filename, language="en")
@@ -73,10 +63,7 @@ class STTService:
             logger.error(f"Erro ao transcrever áudio com Whisper: {e}")
             return None
 
-
-# --- Bloco de Execução Principal ---
 if __name__ == "__main__":
-
     def list_audio_devices():
         print("Dispositivos de áudio disponíveis:")
         for index, name in enumerate(sr.Microphone.list_microphone_names()):
@@ -89,8 +76,7 @@ if __name__ == "__main__":
     list_audio_devices()
     print("-" * 50)
 
-    # Configure os parâmetros aqui.
-    MODEL_NAME = "tiny"  # Whisper model: tiny, base, small, medium, large
+    MODEL_NAME = "tiny"  
     MICROPHONE_ID = 0
 
     try:

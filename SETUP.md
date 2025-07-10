@@ -90,7 +90,6 @@ PORT=8883
 The setup scripts automatically create these directories:
 
 - `data/` - For application data files
-- `models/` - For Vosk speech recognition models
 - `certifications/` - For AWS IoT certificates
 
 ### 3. AWS IoT Certificates
@@ -101,12 +100,6 @@ Place your AWS IoT certificates in the `certifications/` directory:
 - `10da83970c7ac9793d1f4c33c48f082924dc1aaccd0e8e8fd229d13b5caa210e-private.pem.key`
 - `AmazonRootCA1.pem`
 
-### 4. Vosk Models
-
-Download and place Vosk models in the `models/` directory:
-
-- `models/vosk-model-small-en-us-0.15/` (currently configured)
-- `models/vosk-model-en-us-0.22/` (alternative model)
 
 You can download models from: https://alphacephei.com/vosk/models
 

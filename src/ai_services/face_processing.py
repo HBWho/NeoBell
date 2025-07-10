@@ -2,7 +2,6 @@ from deepface import DeepFace
 from pathlib import Path
 import cv2
 import time
-import pandas as pd
 import logging
 
 from services.camera_manager import CameraManager
@@ -10,7 +9,7 @@ from phrases import VISITOR
 
 logger = logging.getLogger(__name__)
 
-MODEL_NAME = "ArcFace"
+MODEL_NAME = "ArcFace" # FaceNet
 DETECTOR = "mtcnn"
 DARK_THRESHOLD = 50
 BRIGHT_THRESHOLD = 200

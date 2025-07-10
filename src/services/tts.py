@@ -7,11 +7,9 @@ from typing import Optional, Union
 from gtts import gTTS
 from playsound import playsound
 
-# --- Basic configuration ---
 logger = logging.getLogger(__name__)
 CACHE_DIR = os.path.join("data", "audios")
 
-# Define a type for items in the queue for clarity
 QueueItem = Union[str, tuple[str, threading.Event]]
 
 class TTSService:
@@ -55,7 +53,6 @@ class TTSService:
             started_event: Optional[threading.Event] = None
             done_event: Optional[threading.Event] = None
             if isinstance(item, tuple):
-                # Suporte para (texto, done_event) ou (texto, started_event, done_event)
                 if len(item) == 2:
                     text, done_event = item
                 elif len(item) == 3:
@@ -87,7 +84,6 @@ class TTSService:
             # The override functionality works by clearing the queue of upcoming
             # items, but it cannot interrupt a sound that has already started.
             try:
-                # Sinaliza o início da fala (caso seja async com started_event)
                 if started_event:
                     started_event.set()
                 # We check the interrupt event before playing.
@@ -149,11 +145,8 @@ class TTSService:
         if override:
             self._clear_speech_queue()
         
-        # Cria um evento para sinalizar o início da fala
         started_event = threading.Event()
-        # Adiciona na fila uma tupla (texto, started_event, None)
         self._speech_queue.put((text_to_say, started_event, None))
-        # Aguarda até que o worker sinalize o início da fala
         started_event.wait()
 
     def wait_for_completion(self):

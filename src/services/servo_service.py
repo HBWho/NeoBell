@@ -24,7 +24,7 @@ class ServoService:
         try:
             pwm = PWM(self.pwm_chip, self.pwm_channel)
             pwm.frequency = 50
-            pwm.duty_cycle = 0.0930  # Começa em 0%
+            pwm.duty_cycle = 0.0930  
             pwm.polarity = "normal"
             pwm.enable()
 
@@ -35,12 +35,11 @@ class ServoService:
             direction = -1  
             time.sleep(2)
             while True:
-                pwm.duty_cycle += 0.0005 * direction  # passo para suavidade
+                pwm.duty_cycle += 0.0005 * direction  
                 pwm.duty_cycle = round(pwm.duty_cycle, 5)
 
                 print("Duty:", pwm.duty_cycle)
 
-                # Limites entre 0% e 10%
                 if pwm.duty_cycle >= posicao_final:
                     direction = -1
                 elif pwm.duty_cycle <= posicao_target:
@@ -48,8 +47,6 @@ class ServoService:
 
                 if pwm.duty_cycle == posicao_final:
                     break
-                # if pwm.duty_cycle == posicao_target:
-                    # time.sleep(0.5) # TODO
                 if direction == -1:
                     if pwm.duty_cycle > 0.060:
                         time.sleep(0.01)
@@ -67,7 +64,7 @@ class ServoService:
         try:
             pwm = PWM(self.pwm_chip, self.pwm_channel)
             pwm.frequency = 50
-            pwm.duty_cycle = 0.0930  # Começa em 0%
+            pwm.duty_cycle = 0.0930  
             pwm.polarity = "normal"
             pwm.enable()
 
@@ -78,12 +75,11 @@ class ServoService:
             direction = 1
 
             while True:
-                pwm.duty_cycle += 0.0005 * direction  # passo para suavidade
+                pwm.duty_cycle += 0.0005 * direction  
                 pwm.duty_cycle = round(pwm.duty_cycle, 5)
 
                 print("Duty:", pwm.duty_cycle)
 
-                # Limites entre 0% e 10%
                 if pwm.duty_cycle >= posicao_final:
                     direction = -1
                 elif pwm.duty_cycle <= posicao_target:

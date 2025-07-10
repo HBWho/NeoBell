@@ -1,4 +1,4 @@
-# phrases.py – Centralized TTS phrases for NeoBell
+# Centralized TTS phrases for NeoBell
 
 MAIN_LOOP = {
     "greeting": "Hi, I'm NeoBell. Do you want to deliver a package or to leave a message?",

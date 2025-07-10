@@ -1,12 +1,7 @@
 import logging
 import re
 
-# from src.phrases import YESNO
 from phrases import YESNO
-
-# Import the service classes for type hinting
-# from tts_service import TTSService
-# from stt_service import STTService
 
 logger = logging.getLogger(__name__)
 

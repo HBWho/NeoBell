@@ -27,7 +27,7 @@ from flows.delivery_flow import DeliveryFlow
 BUTTON_PIN = (1, 12)  # Physical Pin 33
 
 STT_HEAVY_MODE = (
-    False  # Set to True if using a heavy STT model like vosk-model-en-us-0.22
+    False  
 )
 
 MICROPHONE_NAME = "USB PnP Sound Device"
@@ -104,7 +104,7 @@ class Orchestrator:
         self.aws_client.connect()
         self.rfid_listener.start()
         self._init_flow_handlers(self.aws_client)
-        return self  # Return the instance to be used in the 'with' block
+        return self  
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit: ensures all resources are released."""
@@ -117,7 +117,6 @@ class Orchestrator:
         if self.gpio_manager:
             self.gpio_manager.close()
         logger.info("All services shut down gracefully.")
-        # If an exception occurred, it can be logged here
         if exc_type:
             logger.error(
                 "Application exited with an exception.",
@@ -131,7 +130,6 @@ class Orchestrator:
         self.endpoint = os.getenv("AWS_IOT_ENDPOINT")
         self.port = os.getenv("PORT")
 
-        # self.model_path = "models/vosk-model-small-en-us-0.15"
         self.model_path = (
             "base"
             if STT_HEAVY_MODE
@@ -225,13 +223,6 @@ class Orchestrator:
             summary="Boot Notification",
             details={"Status": "System ready"},
         )
-
-        # self.tts_service.speak("Caio and Raian viados. The servo will run in 3,2,1.")
-        # time.sleep(1)
-        # self.servo_service.openHatch()
-        # time.sleep(5)
-        # self.servo_service.closeHatch()
-        # return
 
         while True:
             try:

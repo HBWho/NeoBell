@@ -94,9 +94,6 @@ class GpioManager:
         """Releases all requested GPIO lines."""
         logger.info("Signaling GPIO resources to be released by the system.")
         self.requests.clear()
-        # logger.info("Closing all GPIO line requests.")
-        # for request in self.requests.values():
-        #     request.close()
 
     def __enter__(self):
         """Enables the use of 'with' statement for resource management."""

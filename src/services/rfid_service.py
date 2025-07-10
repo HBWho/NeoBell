@@ -89,11 +89,9 @@ class RfidListenerService:
             if not raw_uid or "Leitor RFID pronto" in raw_uid:
                 return
 
-            # --- NEW FORMATTING LOGIC IS HERE ---
             # 1. Convert the entire string to lowercase (e.g., "CD 01..." -> "cd 01...")
             # 2. Replace all space characters with colons (e.g., "cd 01..." -> "cd:01:39:03")
             formatted_uid = raw_uid.lower().replace(' ', ':')
-            # --- END OF FORMATTING LOGIC ---
 
             logger.info(f"--- RFID TAG READ: '{raw_uid}' -> Formatted to: '{formatted_uid}' ---")
             
@@ -111,9 +109,7 @@ class RfidListenerService:
                 self.gpio_service.set_collect_lock(False) # Lock
 
                 logger.info("Clearing serial buffer and pausing for 2 seconds to prevent duplicate reads...")
-                # 1. Limpa qualquer leitura que tenha chegado durante o processamento
                 serial_connection.reset_input_buffer()
-                # 2. Pausa para criar um período de "cooldown"
                 time.sleep(2)
                 
                 logger.info("Collection door sequence complete.")
