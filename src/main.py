@@ -31,6 +31,8 @@ STT_HEAVY_MODE = (
 )
 
 MICROPHONE_NAME = "USB PnP Sound Device"
+VISITOR_INTENT = ["message", "leave a message"]
+DELIVERY_INTENT = ["delivery", "deliver", "package", "delivery a package"]
 
 logger = logging.getLogger(__name__)
 
@@ -224,28 +226,31 @@ class Orchestrator:
             details={"Status": "System ready"},
         )
 
+        # self.tts_service.speak("Caio and Raian viados. The servo will run in 3,2,1.")
+        # time.sleep(1)
+        # self.servo_service.openHatch()
+        # time.sleep(5)
+        # self.servo_service.closeHatch()
+        # return
+
         while True:
             try:
                 self.gpio_service.set_external_red_led(True)
-                # self.gpio_service.set_camera_led(False)
-                # self.gpio_service.set_internal_led(True)
                 logger.info("Waiting for button press to start interaction...")
 
-                # self.delivery_handler.start_delivery_flow() # TODO
-                # continue # TODO
                 # Wait for the button to be pressed
                 while self.gpio_service.manager.get_pin_value(BUTTON_PIN):
                     time.sleep(0.1)
 
                 logger.info("Button pressed! Starting main conversation flow.")
-                # self.aws_client.submit_log(
-                #     event_type="doorbell_pressed",
-                #     summary="Doorbell pressed",
-                #     details={
-                #         "Button": "Pressed",
-                #         "Timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-                #     },
-                # )
+                self.aws_client.submit_log(
+                    event_type="doorbell_pressed",
+                    summary="Doorbell pressed",
+                    details={
+                        "Button": "Pressed",
+                        "Timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    },
+                )
                 time.sleep(0.5)
 
                 # Intent detection loop (allows retry on unclear intent)
@@ -272,9 +277,17 @@ class Orchestrator:
                         attempt += 1
                         continue
                     
-                    # intent = self.gapi_service.get_initial_intent(text).value
-                    intent = "VISITOR_MESSAGE"
-                    # intent = "PACKAGE_DELIVERY"
+                    text_lower = text.lower()
+                    has_visitor_msg = any(msg in text_lower for msg in VISITOR_INTENT)
+                    has_delivery_msg = any(msg in text_lower for msg in DELIVERY_INTENT)
+
+                    if (has_visitor_msg and has_delivery_msg) or (not has_visitor_msg and not has_delivery_msg):
+                        intent = self.gapi_service.get_initial_intent(text).value
+                    elif has_visitor_msg:
+                        intent = "VISITOR_MESSAGE"
+                    elif has_delivery_msg:
+                        intent = "PACKAGE_DELIVERY"
+
                     logger.info(f"Detected intent: '{intent}'")
                     if intent in ("VISITOR_MESSAGE", "PACKAGE_DELIVERY"):
                         break
