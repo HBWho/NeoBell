@@ -29,7 +29,7 @@ class ServoService:
             pwm.enable()
 
             posicao_final = 93
-            posicao_target = 25
+            posicao_target = 31 # TODO
             posicao_final = (posicao_final/1000)
             posicao_target = (posicao_target/1000)
             direction = -1  
@@ -48,8 +48,8 @@ class ServoService:
 
                 if pwm.duty_cycle == posicao_final:
                     break
-                if pwm.duty_cycle == posicao_target:
-                    time.sleep(3)
+                # if pwm.duty_cycle == posicao_target:
+                    # time.sleep(0.5) # TODO
                 if direction == -1:
                     if pwm.duty_cycle > 0.060:
                         time.sleep(0.01)
