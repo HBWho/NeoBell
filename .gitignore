@@ -1,0 +1,13 @@
+__pycache__/
+venv/
+.env
+*.jpg
+env
+models/
+face_db/
+data/
+scripts/
+app.log
+*.wav
+*.avi
+*.mp4
