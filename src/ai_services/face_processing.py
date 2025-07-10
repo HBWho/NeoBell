@@ -23,31 +23,44 @@ class FaceProcessing:
 
     def register_face(self, camera_id: int, user_folder: Path, gpio, tts):
         user_folder.mkdir(exist_ok=True)
-        saved_image_paths = []
+        temp_image_paths = []
 
         try:
             tts.speak("The photo will be taken in 3, 2, 1")
 
             # Capture image with LED off
             path_led_off = self._capture_and_validate_image(
-                camera_id, user_folder, "image_0", led_status=False, gpio=gpio
+                camera_id, user_folder, "led_off", led_status=False, gpio=gpio
             )
             if path_led_off:
-                saved_image_paths.append(path_led_off)
+                temp_image_paths.append(path_led_off)
 
             # Capture image with LED on
             path_led_on = self._capture_and_validate_image(
-                camera_id, user_folder, "image_1", led_status=True, gpio=gpio
+                camera_id, user_folder, "led_on", led_status=True, gpio=gpio
             )
             if path_led_on:
-                saved_image_paths.append(path_led_on)
+                temp_image_paths.append(path_led_on)
 
         finally:
             gpio.set_camera_led(False)
 
-        if not saved_image_paths:
+        if not temp_image_paths:
             tts.speak_async("Sorry, I could not take a good quality photo. Please try again.")
             return False
+
+        for i, temp_path_str in enumerate(temp_image_paths):
+            temp_path = Path(temp_path_str)
+            final_path = user_folder / f"image_{i}.jpg"
+        
+            try:
+                # Rename led_off.jpg -> image_0.jpg, led_on.jpg -> image_1.jpg, etc.
+                temp_path.rename(final_path)
+                print(f"Saved final image: {final_path.name}")
+            except OSError as e:
+                print(f"Error renaming {temp_path.name} to {final_path.name}: {e}")
+                # If renaming fails, you might want to handle this error
+                return False
 
         tts.speak_async("Registration photos taken successfully.")
         return True
@@ -168,7 +181,7 @@ def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     
     # --- Configuration for the test ---
-    CAMERA_ID = 0 # Change this to your camera's ID
+    CAMERA_ID = 2 # Change this to your camera's ID
     DB_PATH = Path.cwd() / "data" / "test_db"
     DB_PATH.mkdir(exist_ok=True, parents=True)
     print(f"--- Face Processing Test Utility ---")
