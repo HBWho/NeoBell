@@ -7,7 +7,6 @@ models/
 face_db/
 data/
 scripts/
-certifications/
 app.log
 *.wav
 *.avi

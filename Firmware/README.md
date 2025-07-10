@@ -50,20 +50,20 @@ Follow these steps to set up the firmware environment on a compatible Linux-base
 ### 3.2. Step-by-Step Installation
 
 1. **Clone the Repository**
-   ```bash
-   git clone <your-repository-url>
-   cd NeoBell/Firmware/
-   ```
+  ```bash
+  git clone <your-repository-url>
+  cd NeoBell/Firmware/
+  ```
 
 Install System Dependencies
 These are required for libraries like pyttsx3 (PicoTTS), sounddevice, and computer vision packages.
 bash
 
-   ```bash
+  ```bash
    git clone <your-repository-url>
-    sudo apt-get update
-    sudo apt-get install -y espeak-ng libttspico-utils ffmpeg libasound2-dev portaudio19-dev libgpiod-dev
-   ```
+   sudo apt-get update
+   sudo apt-get install -y espeak-ng libttspico-utils ffmpeg libasound2-dev portaudio19-dev libgpiod-dev
+  ```
 
 Create a Python Virtual Environment
 This isolates the project's dependencies.
@@ -97,58 +97,55 @@ Edit the new .env file with your specific AWS credentials:
    ```
 
 Fill in the following values:
-    ```ini
+   ```ini
     # AWS IoT Configuration
     CLIENT_ID=your_sbc_client_id_here
     AWS_IOT_ENDPOINT=your_aws_iot_endpoint_here.amazonaws.com
     PORT=8883
-        ```
+   ```
 
 Place Required Assets
 
-    AWS Certificates: Place your AWS IoT certificate files inside the certifications/ directory.
+  AWS Certificates: Place your AWS IoT certificate files inside the certifications/ directory.
+   ```bash
+  your-certificate.pem.crt
+  your-private.pem.key
+  AmazonRootCA1.pem
+   ```
+  (Ensure the paths in communication/aws_client.py match the filenames).
 
-            your-certificate.pem.crt
-
-            your-private.pem.key
-
-            AmazonRootCA1.pem
-            (Ensure the paths in communication/aws_client.py match the filenames).
-
-4. Running the Application
+## 4. Running the Application
 
 There are two ways to run the firmware: for development/testing and as an autonomous service on boot.
-4.1. For Development and Testing
+### 4.1. For Development and Testing
 
 This method allows you to see live log output directly in your terminal.
 
-    Navigate to the src directory:
-    ```bash
-    cd /path/to/NeoBell/Firmware/src
-    ```
+Navigate to the src directory:
+  ```bash
+  cd /path/to/NeoBell/Firmware/src
+  ```
 
 Activate the virtual environment:
-    ```bash
-    source venv/bin/activate
-    ```
+  ```bash
+  source venv/bin/activate
+  ```
 
 Run the main script:
-    ```bash
-    python main.py
-    ```
+  ```bash
+  python main.py
+  ```
+Press Ctrl+C to stop the application.
 
-    Press Ctrl+C to stop the application.
-
-4.2. For Deployment (Automatic Startup)
+### 4.2. For Deployment (Automatic Startup)
 
 To make the NeoBell run automatically every time the Radxa board is powered on, we will create a systemd service.
 
-    Create the Service File
-    Use a text editor like nano to create the service definition file:
-    ```bash
-
-    sudo nano /etc/systemd/system/neobell.service
-    ```
+Create the Service File
+Use a text editor like nano to create the service definition file:
+  ```bash
+  sudo nano /etc/systemd/system/neobell.service
+  ```
 
 Add the Service Configuration
 Copy and paste the following content into the file. Ensure the paths are correct for your system.
@@ -181,49 +178,54 @@ WantedBy=multi-user.target
 Manage the Service
 After saving the file, run these commands to enable and start the service:
 
-    Reload systemd to recognize the new file:
-    ``` bash
-
-    sudo systemctl daemon-reload
-    ```
+Reload systemd to recognize the new file:
+  ``` bash
+  sudo systemctl daemon-reload
+  ```
 
 Enable the service to start on boot:
-    ```bash
-    sudo systemctl enable neobell.service
-    ```
+  ```bash
+  sudo systemctl enable neobell.service
+  ```
 
 Start the service immediately:
-    ```bash
-    sudo systemctl start neobell.service
-    ```
+  ```bash
+  sudo systemctl start neobell.service
+  ```
 
-Useful Service Commands:
+#### Useful Service Commands:
+  Check status and recent logs: 
+  ```bash
+    sudo systemctl status neobell.service
+  ```
+  View live logs:
+  ```bash
+     sudo journalctl -u neobell.service -f
+  ```
+  Stop the service: 
+  ```bash
+    sudo systemctl stop neobell.service
+  ```
+  Restart the service: 
+  ```bash
+    sudo systemctl restart neobell.service
+  ```
 
-    Check status and recent logs: sudo systemctl status neobell.service
 
-    View live logs: sudo journalctl -u neobell.service -f
-
-    Stop the service: sudo systemctl stop neobell.service
-
-    Restart the service: sudo systemctl restart neobell.service
-
-5. Project Structure
+## 5. Project Structure
 ```text
 Firmware/
-├── src/                    # All primary source code
-│   ├── main.py             # Main application entry point and Orchestrator
-│   ├── ai_services/        # Computer Vision and other AI services
-│   ├── communication/      # AWS IoT communication client
-│   ├── config/             # Centralized configuration modules (e.g., logging)
-│   ├── flows/              # High-level business logic for user interactions
-│   ├── hal/                # Hardware Abstraction Layer (GPIO, Servos)
-│   ├── services/           # Core application services (TTS, STT, RFID, etc.)
-│   ├── phrases.py          # Centralized user-facing text phrases
-│   └── rfid_manager.py     # (Legacy or helper script)
-├── venv/                   # Python virtual environment (created during setup)
-├── data/                   # Directory for runtime data (e.g., captures, user db)
-├── certifications/         # Directory for AWS IoT certificates
-├── requirements.txt        # List of Python dependencies for pip
-├── .env.example            # Template for environment variables
-└── .env                    # Your actual environment variable configurations
+├── ai_services/        # Computer Vision and other AI services
+├── certifications/     # Directory for AWS IoT certificates
+├── communication/      # AWS IoT communication client
+├── config/             # Centralized configuration modules (e.g., logging)
+├── data/               # Directory for runtime data (e.g., captures, user db)
+├── flows/              # High-level business logic for user interactions
+├── hal/                # Hardware Abstraction Layer (GPIO, Servos)
+├── services/           # Core application services (TTS, STT, RFID, etc.)
+├── main.py             # Main application entry point and Orchestrator
+├── phrases.py          # Centralized user-facing text phrases
+├── .env.example        # Template for environment variables
+├── README.md           # This file
+└── requirements.txt    # List of Python dependencies for pip
 ```
